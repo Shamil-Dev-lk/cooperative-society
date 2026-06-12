@@ -110,7 +110,7 @@ export const memberService = {
 
   async batchInsert(
     members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
-    batchSize = 500,
+    batchSize = 100,
     onProgress?: (imported: number, total: number) => void
   ): Promise<{ imported: number; failed: number }> {
     let imported = 0;
@@ -118,12 +118,23 @@ export const memberService = {
 
     for (let i = 0; i < members.length; i += batchSize) {
       const batch = members.slice(i, i + batchSize);
+
+      // Try the whole batch first (fast path)
       const { error } = await supabase.from('members').insert(batch);
 
-      if (error) {
-        failed += batch.length;
-      } else {
+      if (!error) {
+        // Whole batch succeeded
         imported += batch.length;
+      } else {
+        // Batch failed — insert ONE BY ONE so one bad record doesn't kill the rest
+        for (const member of batch) {
+          const { error: rowError } = await supabase.from('members').insert(member);
+          if (rowError) {
+            failed++;
+          } else {
+            imported++;
+          }
+        }
       }
 
       if (onProgress) {
@@ -133,6 +144,7 @@ export const memberService = {
 
     return { imported, failed };
   },
+
 
   async getDashboardStats() {
     const now = new Date();
