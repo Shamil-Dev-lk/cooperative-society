@@ -2,6 +2,7 @@ import React, { useState, useCallback } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useAuthStore } from '@/stores/authStore';
 import {
   Search, Filter, Plus, Pencil, Eye, Download, ChevronLeft, ChevronRight,
   SlidersHorizontal, X, Trash2
@@ -20,6 +21,7 @@ const PAGE_SIZE = 25;
 const MembersPage: React.FC = () => {
   const navigate = useNavigate();
   const queryClient = useQueryClient();
+  const isAdmin = useAuthStore((s) => s.isAdmin());
   const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
@@ -275,26 +277,30 @@ const MembersPage: React.FC = () => {
                           <button
                             onClick={() => navigate(`/members/${m.id}/edit`)}
                             className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
-                            title="View / Edit"
+                            title="View"
                           >
                             <Eye size={15} />
                           </button>
-                          <button
-                            onClick={() => navigate(`/members/${m.id}/edit`)}
-                            className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors"
-                            title="Edit"
-                          >
-                            <Pencil size={15} />
-                          </button>
-                          <button
-                            onClick={() => handleDelete(m.id, m.name)}
-                            disabled={deletingId === m.id}
-                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold transition-colors disabled:opacity-40"
-                            title="Delete Member"
-                          >
-                            <Trash2 size={13} />
-                            {deletingId === m.id ? 'Deleting...' : 'Delete'}
-                          </button>
+                          {isAdmin && (
+                            <>
+                              <button
+                                onClick={() => navigate(`/members/${m.id}/edit`)}
+                                className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors"
+                                title="Edit"
+                              >
+                                <Pencil size={15} />
+                              </button>
+                              <button
+                                onClick={() => handleDelete(m.id, m.name)}
+                                disabled={deletingId === m.id}
+                                className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold transition-colors disabled:opacity-40"
+                                title="Delete Member"
+                              >
+                                <Trash2 size={13} />
+                                {deletingId === m.id ? 'Deleting...' : 'Delete'}
+                              </button>
+                            </>
+                          )}
                         </div>
                       </td>
                     </tr>
