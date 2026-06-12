@@ -1,10 +1,10 @@
 import React, { useState, useCallback } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
 import {
   Search, Filter, Plus, Pencil, Eye, Download, ChevronLeft, ChevronRight,
-  SlidersHorizontal, X
+  SlidersHorizontal, X, Trash2
 } from 'lucide-react';
 import { memberService } from '@/services/memberService';
 import { divisionService } from '@/services/divisionService';
@@ -12,11 +12,15 @@ import { categoryService } from '@/services/categoryService';
 import { TableRowSkeleton } from '@/components/common/Skeleton';
 import { formatDate, formatNumber } from '@/utils/dateUtils';
 import type { MemberFilters } from '@/types';
+import toast from 'react-hot-toast';
+
 
 const PAGE_SIZE = 25;
 
 const MembersPage: React.FC = () => {
   const navigate = useNavigate();
+  const queryClient = useQueryClient();
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<MemberFilters>({});
@@ -42,6 +46,25 @@ const MembersPage: React.FC = () => {
   });
 
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => memberService.deleteMember(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast.success('Member deleted');
+      setDeletingId(null);
+    },
+    onError: () => {
+      toast.error('Failed to delete member');
+      setDeletingId(null);
+    },
+  });
+
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Delete member "${name}"? This cannot be undone.`)) {
+      setDeletingId(id);
+      deleteMutation.mutate(id);
+    }
+  };
 
   const handleSearch = useCallback(() => {
     setFilters((f) => ({ ...f, search: searchInput || undefined }));
@@ -248,7 +271,7 @@ const MembersPage: React.FC = () => {
                         Rs. {formatNumber(m.share_amount || 0)}
                       </td>
                       <td className="px-4 py-3">
-                        <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                        <div className="flex items-center gap-1">
                           <button
                             onClick={() => navigate(`/members/${m.id}/edit`)}
                             className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
@@ -262,6 +285,15 @@ const MembersPage: React.FC = () => {
                             title="Edit"
                           >
                             <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(m.id, m.name)}
+                            disabled={deletingId === m.id}
+                            className="flex items-center gap-1 px-2.5 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold transition-colors disabled:opacity-40"
+                            title="Delete Member"
+                          >
+                            <Trash2 size={13} />
+                            {deletingId === m.id ? 'Deleting...' : 'Delete'}
                           </button>
                         </div>
                       </td>
