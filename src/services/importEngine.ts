@@ -21,6 +21,11 @@ const COLUMN_MAP: Record<string, keyof ParsedMember | 'ignore'> = {
   'memberno': 'member_no',
   'member number': 'member_no',
   'no': 'member_no',
+  'sl no': 'member_no',
+  'sl.no': 'member_no',
+  'serial no': 'member_no',
+  'reg no': 'member_no',
+  'registration no': 'member_no',
   'name': 'name',
   'full name': 'name',
   'member name': 'name',
@@ -30,8 +35,10 @@ const COLUMN_MAP: Record<string, keyof ParsedMember | 'ignore'> = {
   'date': 'joined_date',
   'join date': 'joined_date',
   'registration date': 'joined_date',
+  'reg date': 'joined_date',
   'nic': 'nic',
   'nic number': 'nic',
+  'nic no': 'nic',
   'national id': 'nic',
   'id number': 'nic',
   'share_amount': 'share_amount',
@@ -40,18 +47,15 @@ const COLUMN_MAP: Record<string, keyof ParsedMember | 'ignore'> = {
   'amount': 'share_amount',
   'capital': 'share_amount',
   'share capital': 'share_amount',
+  'contribution': 'share_amount',
 };
-
-const REQUIRED_FIELDS: (keyof ParsedMember)[] = ['member_no', 'name'];
 
 function normalizeHeader(h: string): string {
   return h.trim().toLowerCase().replace(/\s+/g, ' ');
 }
 
 function mapColumn(header: string): keyof ParsedMember | 'ignore' | null {
-  // Direct Sinhala match
   if (COLUMN_MAP[header.trim()]) return COLUMN_MAP[header.trim()];
-  // Normalized English match
   const norm = normalizeHeader(header);
   if (COLUMN_MAP[norm]) return COLUMN_MAP[norm];
   return null;
@@ -59,14 +63,11 @@ function mapColumn(header: string): keyof ParsedMember | 'ignore' | null {
 
 function buildHeaderMap(headers: string[]): Record<string, keyof ParsedMember | 'ignore' | null> {
   const map: Record<string, keyof ParsedMember | 'ignore' | null> = {};
-  for (const h of headers) {
-    map[h] = mapColumn(h);
-  }
+  for (const h of headers) map[h] = mapColumn(h);
   return map;
 }
 
 function isHeaderRow(row: (string | number)[]): boolean {
-  // A row is a header if at least 2 cells match known column names
   let matches = 0;
   for (const cell of row) {
     const val = String(cell ?? '').trim();
@@ -77,12 +78,59 @@ function isHeaderRow(row: (string | number)[]): boolean {
   return matches >= 2;
 }
 
+// ============================================================
+// Fix Excel number formatting issues
+// e.g. "1.0" → "1",  "001.0" → "001"
+// ============================================================
+function fixMemberNo(raw: string): string {
+  const s = raw.trim();
+  if (!s) return '';
+  // If it's a float like "123.0", convert to "123"
+  if (/^\d+\.0$/.test(s)) return String(parseInt(s, 10));
+  // If it's a float like "123.5", keep as-is (unusual but possible)
+  return s;
+}
+
+// ============================================================
+// Fix Excel date serial numbers
+// Excel stores dates as number of days since 1900-01-01
+// ============================================================
+function fixExcelDate(val: string | number): string {
+  const strVal = String(val ?? '').trim();
+
+  // Already a date string?
+  if (/\d{4}-\d{2}-\d{2}/.test(strVal)) return strVal;
+  if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(strVal)) {
+    const norm = normalizeDate(strVal);
+    if (norm) return norm;
+  }
+
+  // Excel serial number? (e.g. 44927)
+  const num = parseFloat(strVal);
+  if (!isNaN(num) && num > 25569 && num < 60000) {
+    // Convert Excel serial to JS date
+    const date = new Date((num - 25569) * 86400 * 1000);
+    const yyyy = date.getUTCFullYear();
+    const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
+    const dd = String(date.getUTCDate()).padStart(2, '0');
+    return `${yyyy}-${mm}-${dd}`;
+  }
+
+  // Try normalizeDate as last resort
+  const norm = normalizeDate(strVal);
+  return norm || new Date().toISOString().split('T')[0];
+}
+
+// ============================================================
+// Parse a single row
+// ============================================================
 function parseRawRow(
   raw: RawImportRow,
   headerMap: Record<string, keyof ParsedMember | 'ignore' | null>,
   divisionId: string,
   categoryId: string,
-  rowIndex: number
+  rowIndex: number,
+  autoMemberNo: string
 ): ImportRow {
   const errors: string[] = [];
   const parsed: Partial<ParsedMember> = {
@@ -98,38 +146,41 @@ function parseRawRow(
 
     switch (field) {
       case 'member_no':
-        parsed.member_no = strVal;
+        parsed.member_no = fixMemberNo(strVal);
         break;
       case 'name':
         parsed.name = strVal;
         break;
       case 'address':
-        parsed.address = strVal || '';
+        parsed.address = strVal;
         break;
       case 'nic':
-        parsed.nic = strVal || '';
+        parsed.nic = strVal;
         break;
       case 'joined_date':
-        parsed.joined_date = normalizeDate(strVal) || new Date().toISOString().split('T')[0];
+        parsed.joined_date = fixExcelDate(strVal);
         break;
       case 'share_amount': {
-        const num = parseFloat(String(strVal).replace(/,/g, ''));
+        const num = parseFloat(String(strVal).replace(/[,\s]/g, ''));
         parsed.share_amount = isNaN(num) ? 0 : num;
         break;
       }
     }
   }
 
+  // Auto-generate member_no if missing
+  if (!parsed.member_no) {
+    parsed.member_no = autoMemberNo;
+  }
+
   // Fill defaults for optional fields
   if (!parsed.address) parsed.address = '';
   if (!parsed.nic) parsed.nic = '';
   if (!parsed.joined_date) parsed.joined_date = new Date().toISOString().split('T')[0];
-  if (!parsed.share_amount) parsed.share_amount = 0;
+  if (parsed.share_amount === undefined) parsed.share_amount = 0;
 
-  // Validate required fields
-  for (const f of REQUIRED_FIELDS) {
-    if (!parsed[f]) errors.push(`${f} is required`);
-  }
+  // Only name is truly required — member_no is auto-generated if missing
+  if (!parsed.name) errors.push('Name is required');
 
   const status = errors.length > 0 ? 'invalid' : 'valid';
 
@@ -165,7 +216,9 @@ export async function parseCSV(
             const vals = Object.values(row);
             return vals.some((v) => v !== null && v !== undefined && String(v).trim() !== '');
           })
-          .map((row, i) => parseRawRow(row, headerMap, divisionId, categoryId, i + 1));
+          .map((row, i) =>
+            parseRawRow(row, headerMap, divisionId, categoryId, i + 1, `AUTO-${i + 1}`)
+          );
 
         resolve(rows);
       },
@@ -175,7 +228,7 @@ export async function parseCSV(
 }
 
 // ============================================================
-// Excel Parser — Auto-detects header row (works with ANY Excel file)
+// Excel Parser — Auto-detects header row (any Excel format)
 // ============================================================
 export async function parseExcel(
   file: File,
@@ -187,14 +240,22 @@ export async function parseExcel(
     reader.onload = (e) => {
       try {
         const data = new Uint8Array(e.target!.result as ArrayBuffer);
-        const workbook = XLSX.read(data, { type: 'array', codepage: 65001 });
+        const workbook = XLSX.read(data, {
+          type: 'array',
+          codepage: 65001,
+          cellDates: false,  // Keep raw serial numbers so we can convert them properly
+          raw: false,
+        });
+
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
 
+        // Get ALL data including empty cells
         const jsonData = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
           header: 1,
           defval: '',
           raw: false,
+          dateNF: 'yyyy-mm-dd',
         });
 
         if (jsonData.length === 0) {
@@ -202,9 +263,9 @@ export async function parseExcel(
           return;
         }
 
-        // Auto-detect header row: scan first 10 rows to find the header
+        // Auto-detect header row: scan first 15 rows
         let headerRowIndex = 0;
-        for (let i = 0; i < Math.min(10, jsonData.length); i++) {
+        for (let i = 0; i < Math.min(15, jsonData.length); i++) {
           if (isHeaderRow(jsonData[i] as (string | number)[])) {
             headerRowIndex = i;
             break;
@@ -216,18 +277,48 @@ export async function parseExcel(
         );
         const headerMap = buildHeaderMap(headerRow);
 
-        const rows: ImportRow[] = [];
-        for (let i = headerRowIndex + 1; i < jsonData.length; i++) {
-          const rowArr = jsonData[i] as (string | number)[];
-          // Skip empty rows
-          if (rowArr.every((v) => v === '' || v === null || v === undefined)) continue;
+        // Check if ANY headers were recognized
+        const recognizedCount = Object.values(headerMap).filter(
+          (v) => v !== null && v !== 'ignore'
+        ).length;
 
+        // If no headers recognized at all, try row 0 as fallback
+        let finalHeaderRowIndex = headerRowIndex;
+        if (recognizedCount === 0 && headerRowIndex !== 0) {
+          finalHeaderRowIndex = 0;
+          const fallbackRow = (jsonData[0] as (string | number)[]).map((h) =>
+            String(h ?? '').trim()
+          );
+          const fallbackMap = buildHeaderMap(fallbackRow);
+          Object.assign(headerMap, fallbackMap);
+        }
+
+        const rows: ImportRow[] = [];
+        for (let i = finalHeaderRowIndex + 1; i < jsonData.length; i++) {
+          const rowArr = jsonData[i] as (string | number)[];
+
+          // Skip entirely empty rows
+          if (!rowArr || rowArr.every((v) => v === '' || v === null || v === undefined)) continue;
+
+          // Build raw object
+          const finalHeaderRow = (jsonData[finalHeaderRowIndex] as (string | number)[]).map((h) =>
+            String(h ?? '').trim()
+          );
           const raw: RawImportRow = {};
-          headerRow.forEach((h, idx) => {
+          finalHeaderRow.forEach((h, idx) => {
             raw[h] = rowArr[idx] ?? '';
           });
 
-          rows.push(parseRawRow(raw, headerMap, divisionId, categoryId, i + 1));
+          // Skip rows where ALL mapped fields are empty
+          const hasData = Object.entries(raw).some(([h, v]) => {
+            const field = headerMap[h];
+            return field && field !== 'ignore' && String(v ?? '').trim() !== '';
+          });
+          if (!hasData) continue;
+
+          rows.push(
+            parseRawRow(raw, headerMap, divisionId, categoryId, i + 1, `M-${rows.length + 1}`)
+          );
         }
 
         resolve(rows);
@@ -274,8 +365,14 @@ export function applyDuplicateDetection(
     const memberNo = row.parsed?.member_no;
     if (!memberNo) return row;
 
-    if (existingMemberNos.has(memberNo) || seenInBatch.has(memberNo)) {
-      return { ...row, status: 'duplicate' as const, errors: ['Duplicate member number'] };
+    // Check duplicate within this batch only (not against existing DB)
+    if (seenInBatch.has(memberNo)) {
+      return { ...row, status: 'duplicate' as const, errors: ['Duplicate member number in file'] };
+    }
+
+    // Check against existing DB but DON'T block — just mark with a warning
+    if (existingMemberNos.has(memberNo)) {
+      return { ...row, status: 'duplicate' as const, errors: ['Already exists in database'] };
     }
 
     seenInBatch.add(memberNo);
@@ -292,11 +389,11 @@ export function downloadImportTemplate(): void {
     ['M001', 'Kamal Perera', 'No 10, Colombo', '199012345678', '2024-01-15', '5000'],
     ['M002', 'Nimal Silva', 'No 20, Kandy', '198512345678', '2024-02-01', '3000'],
     ['M003', 'Sunil Fernando', 'No 30, Galle', '200012345678', '2024-03-10', '7500'],
+    ['M004', 'Kumari Perera', 'No 40, Matara', '199512345678', '2024-04-01', '4500'],
+    ['M005', 'Ruwan Silva', 'No 50, Negombo', '200212345678', '2024-05-15', '6000'],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(templateData);
-
-  // Style the header row
   ws['!cols'] = [
     { wch: 12 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
     { wch: 15 }, { wch: 15 },
