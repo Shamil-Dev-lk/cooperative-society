@@ -124,6 +124,26 @@ const MembersPage: React.FC = () => {
     }
   };
 
+  const handleDeleteAll = async () => {
+    const total = data?.count ?? 0;
+    if (total === 0) return toast.error('No members to delete');
+    if (!window.confirm(`DELETE ALL ${total} members? This will permanently remove every member record. This cannot be undone!`)) return;
+    if (!window.confirm(`Are you absolutely sure? All ${total} members will be deleted forever.`)) return;
+    setBulkDeleting(true);
+    try {
+      const all = await memberService.getAllForReport(filters);
+      await Promise.all(all.map((m) => memberService.deleteMember(m.id)));
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast.success(`All ${all.length} members deleted`);
+      setSelectedIds(new Set());
+      setSelectAllPages(false);
+    } catch {
+      toast.error('Failed to delete all members');
+    } finally {
+      setBulkDeleting(false);
+    }
+  };
+
   const handleSearch = useCallback(() => {
     setFilters((f) => ({ ...f, search: searchInput || undefined }));
     setPage(1);
@@ -152,21 +172,35 @@ const MembersPage: React.FC = () => {
             සාමාජිකයන් — {formatNumber(data?.count ?? 0)} total records
           </p>
         </div>
-        <div className="flex gap-2">
-          <button
-            onClick={() => navigate('/members/import')}
-            className="flex items-center gap-2 border border-primary text-primary hover:bg-primary hover:text-white
-              px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
-          >
-            <Download size={16} /> Import
-          </button>
-          <button
-            onClick={() => navigate('/members/add')}
-            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
-              px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm"
-          >
-            <Plus size={16} /> Add Member
-          </button>
+        <div className="flex gap-2 flex-wrap">
+          {isAdmin && (
+            <button
+              onClick={handleDeleteAll}
+              disabled={bulkDeleting}
+              className="flex items-center gap-2 border border-red-400 text-red-500 hover:bg-red-500 hover:text-white
+                px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 disabled:opacity-40"
+            >
+              <Trash2 size={16} /> Delete All
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/members/import')}
+              className="flex items-center gap-2 border border-primary text-primary hover:bg-primary hover:text-white
+                px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200"
+            >
+              <Download size={16} /> Import
+            </button>
+          )}
+          {isAdmin && (
+            <button
+              onClick={() => navigate('/members/add')}
+              className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
+                px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 shadow-sm"
+            >
+              <Plus size={16} /> Add Member
+            </button>
+          )}
         </div>
       </div>
 
