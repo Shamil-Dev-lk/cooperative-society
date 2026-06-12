@@ -48,8 +48,8 @@ const DashboardPage: React.FC = () => {
       bg: 'bg-red-50',
     },
     {
-      title: 'Total Share Capital',
-      titleSi: 'කොටස් ප්‍රාග්ධනය',
+      title: 'Total Capital',
+      titleSi: 'මුළු ප්‍රාග්ධනය',
       value: statsLoading ? '—' : formatCurrency(stats?.totalShareCapital ?? 0),
       icon: <DollarSign size={22} className="text-white" />,
       color: 'from-emerald-500 to-emerald-700',
@@ -162,7 +162,7 @@ const DashboardPage: React.FC = () => {
               <span className="font-bold text-primary">{formatNumber(stats?.totalMembers ?? 0)}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-emerald-50 dark:bg-emerald-900/20 rounded-xl">
-              <span className="text-sm text-gray-600 dark:text-gray-300">Share Capital</span>
+              <span className="text-sm text-gray-600 dark:text-gray-300">Total Capital</span>
               <span className="font-bold text-emerald-600">Rs. {formatNumber(stats?.totalShareCapital ?? 0)}</span>
             </div>
             <div className="flex items-center justify-between p-3 bg-blue-50 dark:bg-blue-900/20 rounded-xl">
