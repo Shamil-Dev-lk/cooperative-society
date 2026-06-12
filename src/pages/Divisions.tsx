@@ -6,9 +6,11 @@ import { divisionService } from '@/services/divisionService';
 import { TableRowSkeleton } from '@/components/common/Skeleton';
 import { formatNumber } from '@/utils/dateUtils';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
 
 const DivisionsPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const isAdmin = useAuthStore((s) => s.isAdmin());
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
   const [newName, setNewName] = useState('');
@@ -71,13 +73,15 @@ const DivisionsPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-text dark:text-text-dark">Electoral Divisions</h1>
           <p className="text-sm text-gray-400 mt-1">ගරු ආසන — {(divisions || []).length} divisions</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
-            px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm"
-        >
-          <Plus size={16} /> Add Division
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
+              px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm"
+          >
+            <Plus size={16} /> Add Division
+          </button>
+        )}
       </div>
 
       {/* Add Form */}
@@ -180,22 +184,26 @@ const DivisionsPage: React.FC = () => {
                   </td>
                   <td className="px-4 py-3">
                     <div className="flex items-center gap-2 justify-end">
-                      <button
-                        onClick={() => { setEditId(div.id); setEditName(div.division_name); }}
-                        className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors"
-                        title="Edit Division"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(div.id, div.division_name)}
-                        disabled={deletingId === div.id}
-                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold transition-colors disabled:opacity-40 shadow-sm"
-                        title="Delete Division"
-                      >
-                        <Trash2 size={13} />
-                        {deletingId === div.id ? 'Deleting...' : 'Delete'}
-                      </button>
+                      {isAdmin && (
+                        <>
+                          <button
+                            onClick={() => { setEditId(div.id); setEditName(div.division_name); }}
+                            className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors"
+                            title="Edit Division"
+                          >
+                            <Pencil size={15} />
+                          </button>
+                          <button
+                            onClick={() => handleDelete(div.id, div.division_name)}
+                            disabled={deletingId === div.id}
+                            className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold transition-colors disabled:opacity-40 shadow-sm"
+                            title="Delete Division"
+                          >
+                            <Trash2 size={13} />
+                            {deletingId === div.id ? 'Deleting...' : 'Delete'}
+                          </button>
+                        </>
+                      )}
                     </div>
                   </td>
                 </tr>
