@@ -5,7 +5,7 @@ import { motion } from 'framer-motion';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Search, Filter, Plus, Pencil, Eye, Download, ChevronLeft, ChevronRight,
-  SlidersHorizontal, X, Trash2
+  SlidersHorizontal, X, Trash2, CheckSquare, Square
 } from 'lucide-react';
 import { memberService } from '@/services/memberService';
 import { divisionService } from '@/services/divisionService';
@@ -23,6 +23,8 @@ const MembersPage: React.FC = () => {
   const queryClient = useQueryClient();
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<MemberFilters>({});
@@ -65,6 +67,39 @@ const MembersPage: React.FC = () => {
     if (window.confirm(`Delete member "${name}"? This cannot be undone.`)) {
       setDeletingId(id);
       deleteMutation.mutate(id);
+    }
+  };
+
+  const toggleSelect = (id: string) => {
+    setSelectedIds((prev) => {
+      const next = new Set(prev);
+      if (next.has(id)) next.delete(id); else next.add(id);
+      return next;
+    });
+  };
+
+  const toggleSelectAll = () => {
+    const allIds = (data?.data || []).map((m) => m.id);
+    if (selectedIds.size === allIds.length) {
+      setSelectedIds(new Set());
+    } else {
+      setSelectedIds(new Set(allIds));
+    }
+  };
+
+  const handleBulkDelete = async () => {
+    if (selectedIds.size === 0) return;
+    if (!window.confirm(`Delete ${selectedIds.size} selected member(s)? This cannot be undone.`)) return;
+    setBulkDeleting(true);
+    try {
+      await Promise.all([...selectedIds].map((id) => memberService.deleteMember(id)));
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      toast.success(`${selectedIds.size} member(s) deleted`);
+      setSelectedIds(new Set());
+    } catch {
+      toast.error('Some deletions failed');
+    } finally {
+      setBulkDeleting(false);
     }
   };
 
@@ -227,12 +262,56 @@ const MembersPage: React.FC = () => {
         )}
       </div>
 
+      {/* Bulk Action Bar — admin only, shows when items selected */}
+      {isAdmin && selectedIds.size > 0 && (
+        <motion.div
+          initial={{ opacity: 0, y: -8 }}
+          animate={{ opacity: 1, y: 0 }}
+          className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3"
+        >
+          <span className="text-sm font-medium text-primary">
+            {selectedIds.size} member(s) selected
+          </span>
+          <div className="flex gap-2">
+            <button
+              onClick={() => navigate(`/members/${[...selectedIds][0]}/edit`)}
+              disabled={selectedIds.size !== 1}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
+            >
+              <Pencil size={13} /> Edit Selected
+            </button>
+            <button
+              onClick={handleBulkDelete}
+              disabled={bulkDeleting}
+              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
+            >
+              <Trash2 size={13} /> {bulkDeleting ? 'Deleting...' : `Delete (${selectedIds.size})`}
+            </button>
+            <button
+              onClick={() => setSelectedIds(new Set())}
+              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 text-xs font-medium hover:bg-gray-50"
+            >
+              <X size={13} /> Clear
+            </button>
+          </div>
+        </motion.div>
+      )}
+
       {/* Table */}
       <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card overflow-hidden">
         <div className="overflow-x-auto">
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
+                {isAdmin && (
+                  <th className="px-4 py-3 w-10">
+                    <button onClick={toggleSelectAll} className="text-gray-400 hover:text-primary transition-colors">
+                      {selectedIds.size > 0 && selectedIds.size === (data?.data || []).length
+                        ? <CheckSquare size={17} className="text-primary" />
+                        : <Square size={17} />}
+                    </button>
+                  </th>
+                )}
                 {['Member No', 'Name / නම', 'NIC', 'Address', 'Division', 'Category', 'Joined Date', 'Share Amount', 'Actions'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                     {h}
@@ -253,7 +332,26 @@ const MembersPage: React.FC = () => {
                     </tr>
                   )
                   : (data?.data || []).map((m) => (
-                    <tr key={m.id} className="hover:bg-gray-50 dark:hover:bg-gray-800 transition-colors group">
+                    <tr
+                      key={m.id}
+                      className={`transition-colors group ${
+                        selectedIds.has(m.id)
+                          ? 'bg-primary/5 dark:bg-primary/10'
+                          : 'hover:bg-gray-50 dark:hover:bg-gray-800'
+                      }`}
+                    >
+                      {isAdmin && (
+                        <td className="px-4 py-3 w-10">
+                          <button
+                            onClick={() => toggleSelect(m.id)}
+                            className="text-gray-400 hover:text-primary transition-colors"
+                          >
+                            {selectedIds.has(m.id)
+                              ? <CheckSquare size={17} className="text-primary" />
+                              : <Square size={17} />}
+                          </button>
+                        </td>
+                      )}
                       <td className="px-4 py-3 font-mono text-xs text-gray-400">{m.member_no}</td>
                       <td className="px-4 py-3 font-medium text-text dark:text-text-dark">{m.name}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{m.nic}</td>
