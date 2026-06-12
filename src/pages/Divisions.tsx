@@ -179,10 +179,10 @@ const DivisionsPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
+                    <div className="flex items-center gap-2 justify-end">
                       <button
                         onClick={() => { setEditId(div.id); setEditName(div.division_name); }}
-                        className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50"
+                        className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50 transition-colors"
                         title="Edit Division"
                       >
                         <Pencil size={15} />
@@ -190,10 +190,11 @@ const DivisionsPage: React.FC = () => {
                       <button
                         onClick={() => handleDelete(div.id, div.division_name)}
                         disabled={deletingId === div.id}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-40"
+                        className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold transition-colors disabled:opacity-40 shadow-sm"
                         title="Delete Division"
                       >
-                        <Trash2 size={15} />
+                        <Trash2 size={13} />
+                        {deletingId === div.id ? 'Deleting...' : 'Delete'}
                       </button>
                     </div>
                   </td>
