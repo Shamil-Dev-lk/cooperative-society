@@ -110,7 +110,7 @@ export const memberService = {
 
   async batchInsert(
     members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
-    batchSize = 200,
+    batchSize = 500,
     onProgress?: (imported: number, total: number) => void
   ): Promise<{ imported: number; failed: number }> {
     let imported = 0;
@@ -122,7 +122,7 @@ export const memberService = {
       // Clean each record before inserting
       const cleanBatch = batch.map((m) => ({
         ...m,
-        member_no: String(m.member_no ?? '').trim() || `AUTO-${i + Date.now()}`,
+        member_no: String(m.member_no ?? '').trim() || `AUTO-${Date.now()}-${i}`,
         name: String(m.name ?? '').trim(),
         address: String(m.address ?? '').trim() || '',
         nic: String(m.nic ?? '').trim() || '',
@@ -130,18 +130,17 @@ export const memberService = {
         share_amount: Number(m.share_amount) || 0,
       }));
 
-      // Use upsert with ignoreDuplicates — skips conflicts instead of erroring
+      // Fast path: bulk upsert (auto-rename in importEngine ensures no conflicts)
       const { data, error } = await supabase
         .from('members')
         .upsert(cleanBatch, { onConflict: 'member_no', ignoreDuplicates: true })
         .select('id');
 
       if (!error) {
-        const insertedCount = (data || []).length;
-        imported += insertedCount;
-        skipped += batch.length - insertedCount;
+        imported += (data || []).length;
+        skipped += batch.length - (data || []).length;
       } else {
-        // upsert failed — try row by row to maximize success
+        // Slow fallback: row by row only if bulk fails for unexpected reason
         for (const member of cleanBatch) {
           const { error: rowErr } = await supabase
             .from('members')
@@ -156,6 +155,7 @@ export const memberService = {
 
     return { imported, failed: skipped };
   },
+
 
 
   async getDashboardStats() {
