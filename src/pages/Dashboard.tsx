@@ -16,20 +16,27 @@ const DashboardPage: React.FC = () => {
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
     queryFn: () => memberService.getDashboardStats(),
-    staleTime: 60000,
+    staleTime: 0,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: monthlyData, isLoading: chartLoading } = useQuery({
     queryKey: ['monthly-registrations'],
     queryFn: () => memberService.getMonthlyRegistrations(12),
-    staleTime: 60000,
+    staleTime: 0,
+    refetchInterval: 60000,
+    refetchOnWindowFocus: true,
   });
 
   const { data: recentMembers, isLoading: recentLoading } = useQuery({
     queryKey: ['recent-members'],
     queryFn: () => memberService.getRecentMembers(10),
-    staleTime: 30000,
+    staleTime: 0,
+    refetchInterval: 30000,
+    refetchOnWindowFocus: true,
   });
+
 
   const statCards = [
     {
