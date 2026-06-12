@@ -166,7 +166,7 @@ export const memberService = {
 
     const [totalRes, shareRes, newRes, divRes] = await Promise.all([
       supabase.from('members').select('*', { count: 'exact', head: true }),
-      supabase.from('members').select('share_amount'),
+      supabase.from('members').select('share_amount').limit(100000),
       supabase
         .from('members')
         .select('*', { count: 'exact', head: true })
