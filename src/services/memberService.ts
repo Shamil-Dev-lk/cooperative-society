@@ -110,39 +110,51 @@ export const memberService = {
 
   async batchInsert(
     members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
-    batchSize = 100,
+    batchSize = 200,
     onProgress?: (imported: number, total: number) => void
   ): Promise<{ imported: number; failed: number }> {
     let imported = 0;
-    let failed = 0;
+    let skipped = 0;
 
     for (let i = 0; i < members.length; i += batchSize) {
       const batch = members.slice(i, i + batchSize);
 
-      // Try the whole batch first (fast path)
-      const { error } = await supabase.from('members').insert(batch);
+      // Clean each record before inserting
+      const cleanBatch = batch.map((m) => ({
+        ...m,
+        member_no: String(m.member_no ?? '').trim() || `AUTO-${i + Date.now()}`,
+        name: String(m.name ?? '').trim(),
+        address: String(m.address ?? '').trim() || '',
+        nic: String(m.nic ?? '').trim() || '',
+        joined_date: m.joined_date || new Date().toISOString().split('T')[0],
+        share_amount: Number(m.share_amount) || 0,
+      }));
+
+      // Use upsert with ignoreDuplicates — skips conflicts instead of erroring
+      const { data, error } = await supabase
+        .from('members')
+        .upsert(cleanBatch, { onConflict: 'member_no', ignoreDuplicates: true })
+        .select('id');
 
       if (!error) {
-        // Whole batch succeeded
-        imported += batch.length;
+        const insertedCount = (data || []).length;
+        imported += insertedCount;
+        skipped += batch.length - insertedCount;
       } else {
-        // Batch failed — insert ONE BY ONE so one bad record doesn't kill the rest
-        for (const member of batch) {
-          const { error: rowError } = await supabase.from('members').insert(member);
-          if (rowError) {
-            failed++;
-          } else {
-            imported++;
-          }
+        // upsert failed — try row by row to maximize success
+        for (const member of cleanBatch) {
+          const { error: rowErr } = await supabase
+            .from('members')
+            .upsert(member, { onConflict: 'member_no', ignoreDuplicates: true });
+          if (!rowErr) imported++;
+          else skipped++;
         }
       }
 
-      if (onProgress) {
-        onProgress(imported + failed, members.length);
-      }
+      if (onProgress) onProgress(imported + skipped, members.length);
     }
 
-    return { imported, failed };
+    return { imported, failed: skipped };
   },
 
 
