@@ -18,7 +18,7 @@ const routeTitles: Record<string, { title: string; titleSi: string }> = {
 
 export const TopNav: React.FC = () => {
   const { toggleSidebar, toggleDarkMode, darkMode } = useUIStore();
-  const { user } = useAuthStore();
+  const { user, isAdmin } = useAuthStore((s) => ({ user: s.user, isAdmin: s.isAdmin() }));
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -55,7 +55,7 @@ export const TopNav: React.FC = () => {
 
       {/* Right */}
       <div className="flex items-center gap-1 sm:gap-2 flex-shrink-0">
-        {location.pathname === '/members' && (
+        {location.pathname === '/members' && isAdmin && (
           <button
             onClick={() => navigate('/members/add')}
             className="hidden sm:flex items-center gap-2 bg-primary hover:bg-primary-hover text-white px-4 py-2
