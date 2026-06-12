@@ -351,34 +351,43 @@ export async function parseFile(
 }
 
 // ============================================================
-// Duplicate detection
+// Duplicate detection — auto-renames duplicates so ALL rows import
 // ============================================================
 export function applyDuplicateDetection(
   rows: ImportRow[],
   existingMemberNos: Set<string>
 ): ImportRow[] {
-  const seenInBatch = new Set<string>();
+  // All known member numbers (DB + already seen in this file)
+  const allKnownNos = new Set<string>(existingMemberNos);
 
   return rows.map((row) => {
-    if (row.status === 'invalid') return row;
+    if (row.status === 'invalid' || !row.parsed) return row;
 
-    const memberNo = row.parsed?.member_no;
-    if (!memberNo) return row;
+    let memberNo = row.parsed.member_no;
 
-    // Check duplicate within this batch only (not against existing DB)
-    if (seenInBatch.has(memberNo)) {
-      return { ...row, status: 'duplicate' as const, errors: ['Duplicate member number in file'] };
+    if (allKnownNos.has(memberNo)) {
+      // Auto-rename: append suffix until unique
+      let suffix = 2;
+      let newNo = `${memberNo}-${suffix}`;
+      while (allKnownNos.has(newNo)) {
+        suffix++;
+        newNo = `${memberNo}-${suffix}`;
+      }
+      memberNo = newNo;
+      // Keep as valid with renamed member_no
+      row = {
+        ...row,
+        parsed: { ...row.parsed, member_no: memberNo },
+        status: 'valid',
+        errors: [],
+      };
     }
 
-    // Check against existing DB but DON'T block — just mark with a warning
-    if (existingMemberNos.has(memberNo)) {
-      return { ...row, status: 'duplicate' as const, errors: ['Already exists in database'] };
-    }
-
-    seenInBatch.add(memberNo);
+    allKnownNos.add(memberNo);
     return row;
   });
 }
+
 
 // ============================================================
 // Template generator
