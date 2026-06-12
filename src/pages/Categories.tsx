@@ -7,9 +7,11 @@ import { ConfirmDialog } from '@/components/common/ConfirmDialog';
 import { TableRowSkeleton } from '@/components/common/Skeleton';
 import { formatNumber } from '@/utils/dateUtils';
 import toast from 'react-hot-toast';
+import { useAuthStore } from '@/stores/authStore';
 
 const CategoriesPage: React.FC = () => {
   const queryClient = useQueryClient();
+  const isAdmin = useAuthStore((s) => s.isAdmin());
   const [search, setSearch] = useState('');
   const [editId, setEditId] = useState<string | null>(null);
   const [editName, setEditName] = useState('');
@@ -70,13 +72,15 @@ const CategoriesPage: React.FC = () => {
           <h1 className="text-2xl font-bold text-text dark:text-text-dark">Categories</h1>
           <p className="text-sm text-gray-400 mt-1">කාණ්ඩ — {(categories || []).length} categories</p>
         </div>
-        <button
-          onClick={() => setShowAddForm(true)}
-          className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
-            px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm"
-        >
-          <Plus size={16} /> Add Category
-        </button>
+        {isAdmin && (
+          <button
+            onClick={() => setShowAddForm(true)}
+            className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
+              px-4 py-2.5 rounded-xl text-sm font-medium transition-all shadow-sm"
+          >
+            <Plus size={16} /> Add Category
+          </button>
+        )}
       </div>
 
       {/* Add Form */}
@@ -191,20 +195,22 @@ const CategoriesPage: React.FC = () => {
                     </span>
                   </td>
                   <td className="px-4 py-3">
-                    <div className="flex items-center gap-1 justify-end opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button
-                        onClick={() => { setEditId(cat.id); setEditName(cat.category_name); }}
-                        className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50"
-                      >
-                        <Pencil size={15} />
-                      </button>
-                      <button
-                        onClick={() => setDeletingId(cat.id)}
-                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50"
-                      >
-                        <Trash2 size={15} />
-                      </button>
-                    </div>
+                    {isAdmin && (
+                      <div className="flex items-center gap-1 justify-end">
+                        <button
+                          onClick={() => { setEditId(cat.id); setEditName(cat.category_name); }}
+                          className="p-1.5 rounded-lg text-amber-500 hover:bg-amber-50"
+                        >
+                          <Pencil size={15} />
+                        </button>
+                        <button
+                          onClick={() => setDeletingId(cat.id)}
+                          className="flex items-center gap-1 px-3 py-1.5 rounded-lg text-white bg-red-500 hover:bg-red-600 text-xs font-semibold"
+                        >
+                          <Trash2 size={13} /> Delete
+                        </button>
+                      </div>
+                    )}
                   </td>
                 </tr>
               ))
