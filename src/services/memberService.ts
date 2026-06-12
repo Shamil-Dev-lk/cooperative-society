@@ -156,7 +156,58 @@ export const memberService = {
     return { imported, failed: skipped };
   },
 
+  // Update share amounts for existing members (matched by member_no)
+  async batchUpdateShareAmounts(
+    updates: { member_no: string; share_amount: number }[],
+    onProgress?: (done: number, total: number) => void
+  ): Promise<{ updated: number; failed: number }> {
+    let updated = 0;
+    let failed = 0;
+    for (let i = 0; i < updates.length; i++) {
+      const { member_no, share_amount } = updates[i];
+      const { error } = await supabase
+        .from('members')
+        .update({ share_amount })
+        .eq('member_no', member_no);
+      if (error) failed++;
+      else updated++;
+      if (onProgress) onProgress(i + 1, updates.length);
+    }
+    return { updated, failed };
+  },
 
+  // Bulk upsert — updates existing records, inserts new ones
+  async batchUpsert(
+    members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
+    batchSize = 200,
+    onProgress?: (done: number, total: number) => void
+  ): Promise<{ updated: number; failed: number }> {
+    let updated = 0;
+    let failed = 0;
+    for (let i = 0; i < members.length; i += batchSize) {
+      const batch = members.slice(i, i + batchSize).map((m) => ({
+        ...m,
+        member_no: String(m.member_no ?? '').trim(),
+        share_amount: Number(m.share_amount) || 0,
+      }));
+      // upsert WITHOUT ignoreDuplicates → updates existing records
+      const { data, error } = await supabase
+        .from('members')
+        .upsert(batch, { onConflict: 'member_no' })
+        .select('id');
+      if (!error) updated += (data || []).length;
+      else {
+        for (const m of batch) {
+          const { error: e } = await supabase
+            .from('members')
+            .upsert(m, { onConflict: 'member_no' });
+          if (!e) updated++; else failed++;
+        }
+      }
+      if (onProgress) onProgress(Math.min(i + batchSize, members.length), members.length);
+    }
+    return { updated, failed };
+  },
 
   async getDashboardStats() {
     const now = new Date();
