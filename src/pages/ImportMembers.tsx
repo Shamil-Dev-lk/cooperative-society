@@ -87,18 +87,33 @@ const ImportMembersPage: React.FC = () => {
   };
 
   // STEP 4 → 5: Import
-  const handleImport = async () => {
-    const validRows = rows.filter((r) => r.status === 'valid' && r.parsed);
-    if (validRows.length === 0) {
-      toast.error('No valid rows to import');
+  const handleImport = async (includeSkipped = false) => {
+    let rowsToImport = rows.filter((r) => r.status === 'valid' && r.parsed);
+
+    if (includeSkipped) {
+      // Also import duplicate rows — rename their member_no to avoid conflicts
+      const dupRows = rows.filter((r) => r.status === 'duplicate' && r.parsed);
+      const usedNos = new Set(rowsToImport.map((r) => r.parsed!.member_no));
+      let suffix = 1;
+      for (const row of dupRows) {
+        let newNo = row.parsed!.member_no;
+        while (usedNos.has(newNo)) {
+          newNo = `${row.parsed!.member_no}-${suffix++}`;
+        }
+        usedNos.add(newNo);
+        rowsToImport.push({ ...row, parsed: { ...row.parsed!, member_no: newNo } });
+      }
+    }
+
+    if (rowsToImport.length === 0) {
+      toast.error('No rows to import');
       return;
     }
 
     setIsImporting(true);
     setProgress(0);
     const start = Date.now();
-
-    const members = validRows.map((r) => r.parsed!);
+    const members = rowsToImport.map((r) => r.parsed!);
     setStep('import');
 
     const { imported, failed } = await memberService.batchInsert(
@@ -117,7 +132,7 @@ const ImportMembersPage: React.FC = () => {
     setSummary({
       totalRows: rows.length,
       imported,
-      duplicates,
+      duplicates: includeSkipped ? 0 : duplicates,
       failed: failed + invalid,
       durationMs,
     });
@@ -129,6 +144,7 @@ const ImportMembersPage: React.FC = () => {
     setStep('summary');
     toast.success(`Imported ${imported} members successfully!`);
   };
+
 
   const handleReset = () => {
     setFile(null);
@@ -495,6 +511,26 @@ const ImportMembersPage: React.FC = () => {
                 </div>
               )}
 
+              {/* Duplicate warning with Force Import option */}
+              {dupCount > 0 && (
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <p className="text-sm font-semibold text-amber-800 mb-1">
+                    ⚠️ {formatNumber(dupCount)} rows detected as duplicates
+                  </p>
+                  <p className="text-xs text-amber-700 mb-3">
+                    These may be members that already exist in the database, or have duplicate member numbers within the file.
+                    You can either skip them (default) or <strong>Force Import All</strong> — duplicates will get a new unique member number automatically.
+                  </p>
+                  <button
+                    onClick={() => handleImport(true)}
+                    className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white
+                      px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
+                  >
+                    ⚡ Force Import All {formatNumber(validCount + dupCount)} Records
+                  </button>
+                </div>
+              )}
+
               <div className="flex justify-between mt-6">
                 <button
                   onClick={() => goToStep('preview')}
@@ -505,15 +541,16 @@ const ImportMembersPage: React.FC = () => {
                 </button>
                 <button
                   disabled={validCount === 0}
-                  onClick={handleImport}
+                  onClick={() => handleImport(false)}
                   className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
                     px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-40 transition-all"
                 >
-                  Start Import <ChevronRight size={16} />
+                  Import {formatNumber(validCount)} Valid Records <ChevronRight size={16} />
                 </button>
               </div>
             </div>
           )}
+
 
           {/* STEP 5: Importing */}
           {step === 'import' && (
