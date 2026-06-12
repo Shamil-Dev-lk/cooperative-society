@@ -48,6 +48,13 @@ const COLUMN_MAP: Record<string, keyof ParsedMember | 'ignore'> = {
   'capital': 'share_amount',
   'share capital': 'share_amount',
   'contribution': 'share_amount',
+  'total amount': 'share_amount',
+  'total capital': 'share_amount',
+  'කොටස': 'share_amount',
+  'කොටස් ප්‍රාග්ධනය': 'share_amount',
+  'ප්‍රාග්ධනය': 'share_amount',
+  'මුදල': 'share_amount',
+  'කොටස් වටිනාකම': 'share_amount',
 };
 
 function normalizeHeader(h: string): string {
@@ -85,10 +92,28 @@ function isHeaderRow(row: (string | number)[]): boolean {
 function fixMemberNo(raw: string): string {
   const s = raw.trim();
   if (!s) return '';
-  // If it's a float like "123.0", convert to "123"
   if (/^\d+\.0$/.test(s)) return String(parseInt(s, 10));
-  // If it's a float like "123.5", keep as-is (unusual but possible)
   return s;
+}
+
+// ============================================================
+// Fix share amount — strip currency symbols and parse number
+// Handles: "Rs. 5,000", "LKR 5000", "රු. 5,000", "5,000.00", "5000"
+// ============================================================
+function fixShareAmount(raw: string | number): number {
+  if (typeof raw === 'number') return isNaN(raw) ? 0 : raw;
+  const s = String(raw ?? '').trim();
+  if (!s) return 0;
+  // Strip currency symbols, Sinhala රු., Rs., LKR, spaces
+  const cleaned = s
+    .replace(/රු\.?/g, '')
+    .replace(/Rs\.?/gi, '')
+    .replace(/LKR/gi, '')
+    .replace(/රුපියල/g, '')
+    .replace(/[,\s]/g, '')
+    .trim();
+  const num = parseFloat(cleaned);
+  return isNaN(num) ? 0 : num;
 }
 
 // ============================================================
@@ -161,8 +186,7 @@ function parseRawRow(
         parsed.joined_date = fixExcelDate(strVal);
         break;
       case 'share_amount': {
-        const num = parseFloat(String(strVal).replace(/[,\s]/g, ''));
-        parsed.share_amount = isNaN(num) ? 0 : num;
+        parsed.share_amount = fixShareAmount(value);
         break;
       }
     }
