@@ -17,7 +17,6 @@ const PAGE_SIZE = 25;
 
 const MembersPage: React.FC = () => {
   const navigate = useNavigate();
-  const queryClient = useQueryClient();
 
   const [page, setPage] = useState(1);
   const [filters, setFilters] = useState<MemberFilters>({});
