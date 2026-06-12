@@ -24,6 +24,7 @@ const MembersPage: React.FC = () => {
   const isAdmin = useAuthStore((s) => s.isAdmin());
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set());
+  const [selectAllPages, setSelectAllPages] = useState(false);
   const [bulkDeleting, setBulkDeleting] = useState(false);
 
   const [page, setPage] = useState(1);
@@ -71,6 +72,7 @@ const MembersPage: React.FC = () => {
   };
 
   const toggleSelect = (id: string) => {
+    setSelectAllPages(false);
     setSelectedIds((prev) => {
       const next = new Set(prev);
       if (next.has(id)) next.delete(id); else next.add(id);
@@ -80,22 +82,41 @@ const MembersPage: React.FC = () => {
 
   const toggleSelectAll = () => {
     const allIds = (data?.data || []).map((m) => m.id);
-    if (selectedIds.size === allIds.length) {
+    if (selectedIds.size === allIds.length && !selectAllPages) {
       setSelectedIds(new Set());
+      setSelectAllPages(false);
     } else {
       setSelectedIds(new Set(allIds));
+      setSelectAllPages(false);
+    }
+  };
+
+  const handleSelectAllPages = async () => {
+    // Fetch ALL members (no pagination)
+    toast.loading('Loading all members...');
+    try {
+      const all = await memberService.getAllForReport(filters);
+      setSelectedIds(new Set(all.map((m) => m.id)));
+      setSelectAllPages(true);
+      toast.dismiss();
+      toast.success(`All ${all.length} members selected`);
+    } catch {
+      toast.dismiss();
+      toast.error('Failed to load all members');
     }
   };
 
   const handleBulkDelete = async () => {
     if (selectedIds.size === 0) return;
-    if (!window.confirm(`Delete ${selectedIds.size} selected member(s)? This cannot be undone.`)) return;
+    const total = selectAllPages ? data?.count ?? selectedIds.size : selectedIds.size;
+    if (!window.confirm(`Delete ${total} member(s)? This cannot be undone.`)) return;
     setBulkDeleting(true);
     try {
       await Promise.all([...selectedIds].map((id) => memberService.deleteMember(id)));
       queryClient.invalidateQueries({ queryKey: ['members'] });
       toast.success(`${selectedIds.size} member(s) deleted`);
       setSelectedIds(new Set());
+      setSelectAllPages(false);
     } catch {
       toast.error('Some deletions failed');
     } finally {
@@ -262,40 +283,73 @@ const MembersPage: React.FC = () => {
         )}
       </div>
 
-      {/* Bulk Action Bar — admin only, shows when items selected */}
+      {/* Bulk Action Bar — admin only */}
       {isAdmin && selectedIds.size > 0 && (
         <motion.div
           initial={{ opacity: 0, y: -8 }}
           animate={{ opacity: 1, y: 0 }}
-          className="flex items-center justify-between bg-primary/10 border border-primary/30 rounded-2xl px-4 py-3"
+          className="rounded-2xl border border-primary/30 bg-primary/10 overflow-hidden"
         >
-          <span className="text-sm font-medium text-primary">
-            {selectedIds.size} member(s) selected
-          </span>
-          <div className="flex gap-2">
-            <button
-              onClick={() => navigate(`/members/${[...selectedIds][0]}/edit`)}
-              disabled={selectedIds.size !== 1}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
-            >
-              <Pencil size={13} /> Edit Selected
-            </button>
-            <button
-              onClick={handleBulkDelete}
-              disabled={bulkDeleting}
-              className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
-            >
-              <Trash2 size={13} /> {bulkDeleting ? 'Deleting...' : `Delete (${selectedIds.size})`}
-            </button>
-            <button
-              onClick={() => setSelectedIds(new Set())}
-              className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 text-xs font-medium hover:bg-gray-50"
-            >
-              <X size={13} /> Clear
-            </button>
+          {/* Select all pages banner */}
+          {selectedIds.size === (data?.data || []).length && !selectAllPages && data && data.count > PAGE_SIZE && (
+            <div className="flex items-center justify-center gap-3 py-2 bg-blue-50 dark:bg-blue-900/20 border-b border-primary/20 text-sm">
+              <span className="text-gray-700 dark:text-gray-300">
+                All <strong>{selectedIds.size}</strong> members on this page are selected.
+              </span>
+              <button
+                onClick={handleSelectAllPages}
+                className="text-primary font-semibold hover:underline"
+              >
+                Select all {formatNumber(data.count)} members
+              </button>
+            </div>
+          )}
+          {selectAllPages && data && (
+            <div className="flex items-center justify-center gap-3 py-2 bg-primary/20 border-b border-primary/30 text-sm">
+              <span className="text-primary font-semibold">
+                ✅ All {formatNumber(data.count)} members selected.
+              </span>
+              <button
+                onClick={() => { setSelectAllPages(false); setSelectedIds(new Set()); }}
+                className="text-gray-600 hover:underline text-xs"
+              >
+                Clear selection
+              </button>
+            </div>
+          )}
+
+          {/* Action buttons */}
+          <div className="flex items-center justify-between px-4 py-3">
+            <span className="text-sm font-medium text-primary">
+              {selectAllPages ? formatNumber(data?.count ?? selectedIds.size) : selectedIds.size} member(s) selected
+            </span>
+            <div className="flex gap-2">
+              <button
+                onClick={() => navigate(`/members/${[...selectedIds][0]}/edit`)}
+                disabled={selectedIds.size !== 1}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
+              >
+                <Pencil size={13} /> Edit Selected
+              </button>
+              <button
+                onClick={handleBulkDelete}
+                disabled={bulkDeleting}
+                className="flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-red-500 hover:bg-red-600 text-white text-xs font-semibold disabled:opacity-40 transition-colors"
+              >
+                <Trash2 size={13} />
+                {bulkDeleting ? 'Deleting...' : `Delete (${selectAllPages ? formatNumber(data?.count ?? selectedIds.size) : selectedIds.size})`}
+              </button>
+              <button
+                onClick={() => { setSelectedIds(new Set()); setSelectAllPages(false); }}
+                className="flex items-center gap-1 px-3 py-1.5 rounded-lg border border-gray-300 text-gray-600 text-xs font-medium hover:bg-gray-50"
+              >
+                <X size={13} /> Clear
+              </button>
+            </div>
           </div>
         </motion.div>
       )}
+
 
       {/* Table */}
       <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card overflow-hidden">
