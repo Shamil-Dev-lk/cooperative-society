@@ -30,6 +30,7 @@ const ImportMembersPage: React.FC = () => {
   const [file, setFile] = useState<File | null>(null);
   const [divisionId, setDivisionId] = useState('');
   const [categoryId, setCategoryId] = useState('');
+  const [importMode, setImportMode] = useState<'insert' | 'update'>('insert');
   const [rows, setRows] = useState<ImportRow[]>([]);
   const [isParsing, setIsParsing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
@@ -88,6 +89,29 @@ const ImportMembersPage: React.FC = () => {
 
   // STEP 4 → 5: Import
   const handleImport = async (includeSkipped = false) => {
+    // UPDATE MODE: update share amounts for existing members
+    if (importMode === 'update') {
+      const allRows = rows.filter((r) => r.parsed?.member_no && r.parsed?.share_amount !== undefined);
+      if (allRows.length === 0) { toast.error('No valid rows to update'); return; }
+      setIsImporting(true);
+      setProgress(0);
+      setStep('import');
+      const start = Date.now();
+      const members = allRows.map((r) => r.parsed!);
+      const { updated, failed } = await memberService.batchUpsert(
+        members, 200,
+        (done, total) => { setProgress(Math.round((done / total) * 100)); setProgressCount({ done, total }); }
+      );
+      setSummary({ totalRows: rows.length, imported: updated, duplicates: 0, failed, durationMs: Date.now() - start });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setIsImporting(false);
+      setStep('summary');
+      toast.success(`Updated ${updated} members' share amounts!`);
+      return;
+    }
+
+    // INSERT MODE
     let rowsToImport = rows.filter((r) => r.status === 'valid' && r.parsed);
 
     if (includeSkipped) {
@@ -213,6 +237,36 @@ const ImportMembersPage: React.FC = () => {
               <p className="text-sm text-gray-400 mb-5">
                 Supports <strong>CSV, XLS, XLSX</strong> — up to <strong>5,000 members</strong> per import.
               </p>
+
+              {/* Mode Selector */}
+              <div className="mb-5 grid grid-cols-2 gap-3">
+                <button
+                  onClick={() => setImportMode('insert')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    importMode === 'insert'
+                      ? 'border-primary bg-red-50 dark:bg-red-900/20'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <p className={`text-sm font-bold mb-1 ${importMode === 'insert' ? 'text-primary' : 'text-gray-700'}`}>
+                    ➕ Add New Members
+                  </p>
+                  <p className="text-xs text-gray-500">Import new members from Excel into the database</p>
+                </button>
+                <button
+                  onClick={() => setImportMode('update')}
+                  className={`p-4 rounded-xl border-2 text-left transition-all ${
+                    importMode === 'update'
+                      ? 'border-amber-500 bg-amber-50 dark:bg-amber-900/20'
+                      : 'border-gray-200 hover:border-gray-300'
+                  }`}
+                >
+                  <p className={`text-sm font-bold mb-1 ${importMode === 'update' ? 'text-amber-600' : 'text-gray-700'}`}>
+                    🔄 Update Share Amounts
+                  </p>
+                  <p className="text-xs text-gray-500">Fix share amounts for existing members — no data deleted</p>
+                </button>
+              </div>
 
               {/* Template Download */}
               <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between gap-3">
