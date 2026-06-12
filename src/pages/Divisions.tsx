@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion } from 'framer-motion';
-import { Plus, Pencil, MapPin } from 'lucide-react';
+import { Plus, Pencil, MapPin, Trash2 } from 'lucide-react';
 import { divisionService } from '@/services/divisionService';
 import { TableRowSkeleton } from '@/components/common/Skeleton';
 import { formatNumber } from '@/utils/dateUtils';
@@ -13,6 +13,7 @@ const DivisionsPage: React.FC = () => {
   const [editName, setEditName] = useState('');
   const [newName, setNewName] = useState('');
   const [showAddForm, setShowAddForm] = useState(false);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const { data: divisions, isLoading } = useQuery({
     queryKey: ['divisions'],
@@ -42,7 +43,25 @@ const DivisionsPage: React.FC = () => {
     onError: () => toast.error('Failed to update division'),
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => divisionService.delete(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['divisions'] });
+      toast.success('Division deleted');
+      setDeletingId(null);
+    },
+    onError: () => {
+      toast.error('Failed to delete division');
+      setDeletingId(null);
+    },
+  });
 
+  const handleDelete = (id: string, name: string) => {
+    if (window.confirm(`Delete "${name}"? This cannot be undone.`)) {
+      setDeletingId(id);
+      deleteMutation.mutate(id);
+    }
+  };
 
   return (
     <div className="max-w-3xl mx-auto space-y-5 animate-fade-in">
@@ -105,7 +124,7 @@ const DivisionsPage: React.FC = () => {
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">#</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Division Name</th>
               <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide">Members</th>
-              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Edit</th>
+              <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase tracking-wide">Actions</th>
             </tr>
           </thead>
           <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
@@ -167,6 +186,14 @@ const DivisionsPage: React.FC = () => {
                         title="Edit Division"
                       >
                         <Pencil size={15} />
+                      </button>
+                      <button
+                        onClick={() => handleDelete(div.id, div.division_name)}
+                        disabled={deletingId === div.id}
+                        className="p-1.5 rounded-lg text-red-500 hover:bg-red-50 disabled:opacity-40"
+                        title="Delete Division"
+                      >
+                        <Trash2 size={15} />
                       </button>
                     </div>
                   </td>
