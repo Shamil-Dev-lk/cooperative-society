@@ -9,7 +9,7 @@ import {
 import { divisionService } from '@/services/divisionService';
 import { categoryService } from '@/services/categoryService';
 import { memberService } from '@/services/memberService';
-import { parseFile, applyDuplicateDetection } from '@/services/importEngine';
+import { parseFile, applyDuplicateDetection, downloadImportTemplate } from '@/services/importEngine';
 import type { ImportRow, ImportStep, ImportSummary } from '@/types';
 import { formatNumber } from '@/utils/dateUtils';
 import toast from 'react-hot-toast';
@@ -34,6 +34,7 @@ const ImportMembersPage: React.FC = () => {
   const [isParsing, setIsParsing] = useState(false);
   const [isImporting, setIsImporting] = useState(false);
   const [progress, setProgress] = useState(0);
+  const [progressCount, setProgressCount] = useState({ done: 0, total: 0 });
   const [summary, setSummary] = useState<ImportSummary | null>(null);
 
   const { data: divisions } = useQuery({
@@ -102,8 +103,11 @@ const ImportMembersPage: React.FC = () => {
 
     const { imported, failed } = await memberService.batchInsert(
       members,
-      500,
-      (done, total) => setProgress(Math.round((done / total) * 100))
+      1000,
+      (done, total) => {
+        setProgress(Math.round((done / total) * 100));
+        setProgressCount({ done, total });
+      }
     );
 
     const durationMs = Date.now() - start;
@@ -191,8 +195,40 @@ const ImportMembersPage: React.FC = () => {
             <div>
               <h2 className="text-lg font-semibold text-text dark:text-text-dark mb-2">Upload File</h2>
               <p className="text-sm text-gray-400 mb-5">
-                Supports CSV, XLS, XLSX. For Excel files: skip first 5 rows, row 6 = headers, data from row 7.
+                Supports <strong>CSV, XLS, XLSX</strong> — up to <strong>5,000 members</strong> per import.
               </p>
+
+              {/* Template Download */}
+              <div className="mb-5 p-4 bg-blue-50 dark:bg-blue-900/20 rounded-xl flex items-center justify-between gap-3">
+                <div>
+                  <p className="text-sm font-semibold text-blue-800 dark:text-blue-300">📥 Download Template</p>
+                  <p className="text-xs text-blue-600 dark:text-blue-400 mt-0.5">
+                    Use this Excel template — fill in your data and upload below
+                  </p>
+                </div>
+                <button
+                  onClick={downloadImportTemplate}
+                  className="flex items-center gap-2 bg-blue-500 hover:bg-blue-600 text-white px-4 py-2 rounded-xl text-sm font-medium whitespace-nowrap transition-colors"
+                >
+                  <FileText size={15} /> Get Template
+                </button>
+              </div>
+
+              {/* Column guide */}
+              <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
+                <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Required columns in your file:</p>
+                <div className="flex flex-wrap gap-2">
+                  {['member_no', 'name', 'address', 'nic', 'joined_date', 'share_amount'].map((col) => (
+                    <span key={col} className={`px-2 py-0.5 rounded text-xs font-mono
+                      ${ ['member_no','name'].includes(col)
+                        ? 'bg-red-100 text-red-700 font-bold'
+                        : 'bg-gray-200 text-gray-600' }`}>
+                      {col}{['member_no','name'].includes(col) ? ' *' : ''}
+                    </span>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-400 mt-2">* Required. Others are optional (will use defaults if missing).</p>
+              </div>
               <div
                 {...getRootProps()}
                 className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200
@@ -488,18 +524,22 @@ const ImportMembersPage: React.FC = () => {
               <div className="max-w-sm mx-auto">
                 <div className="flex justify-between text-sm text-gray-500 mb-2">
                   <span>Progress</span>
-                  <span>{progress}%</span>
+                  <span className="font-semibold">
+                    {progressCount.total > 0
+                      ? `${progressCount.done.toLocaleString()} / ${progressCount.total.toLocaleString()} records`
+                      : `${progress}%`}
+                  </span>
                 </div>
-                <div className="w-full bg-gray-100 rounded-full h-3 overflow-hidden">
+                <div className="w-full bg-gray-100 rounded-full h-4 overflow-hidden">
                   <motion.div
-                    className="h-3 rounded-full bg-gradient-to-r from-red-400 to-primary"
+                    className="h-4 rounded-full bg-gradient-to-r from-red-400 to-primary"
                     initial={{ width: '0%' }}
                     animate={{ width: `${progress}%` }}
                     transition={{ duration: 0.3 }}
                   />
                 </div>
                 <p className="text-xs text-gray-400 mt-3">
-                  Importing in batches of 500 records — please wait...
+                  Importing {formatNumber(progressCount.total)} members in batches of 1,000 — please wait...
                 </p>
               </div>
             </div>
@@ -562,7 +602,7 @@ const ImportMembersPage: React.FC = () => {
                   Import Another File
                 </button>
                 <a
-                  href="/members"
+                  href="/cooperative-society/members"
                   className="flex-1 bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-xl
                     text-sm font-medium text-center transition-all"
                 >
