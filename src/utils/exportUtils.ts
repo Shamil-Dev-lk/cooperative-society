@@ -139,7 +139,7 @@ export function exportToCSV(members: Member[], title: string): void {
     'Share Amount': m.share_amount || 0,
   }));
 
-  const csv = Papa.unparse(rows, { encoding: 'UTF-8' });
+  const csv = Papa.unparse(rows);
   const bom = '\uFEFF'; // UTF-8 BOM for Sinhala support
   const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
   const url = URL.createObjectURL(blob);
