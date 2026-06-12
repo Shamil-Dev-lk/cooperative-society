@@ -34,14 +34,14 @@ export const AppRouter: React.FC = () => (
         <Route element={<AppLayout />}>
           <Route path="/dashboard" element={<DashboardPage />} />
           <Route path="/members" element={<MembersPage />} />
-          <Route path="/members/add" element={<AddMemberPage />} />
-          <Route path="/members/:id/edit" element={<EditMemberPage />} />
-          <Route path="/members/import" element={<ImportPage />} />
           <Route path="/categories" element={<CategoriesPage />} />
           <Route path="/divisions" element={<DivisionsPage />} />
           <Route path="/reports" element={<ReportsPage />} />
           {/* Admin only */}
           <Route element={<ProtectedRoute requiredRole="ADMIN" />}>
+            <Route path="/members/add" element={<AddMemberPage />} />
+            <Route path="/members/:id/edit" element={<EditMemberPage />} />
+            <Route path="/members/import" element={<ImportPage />} />
             <Route path="/settings" element={<SettingsPage />} />
             <Route path="/users" element={<UserManagementPage />} />
           </Route>
