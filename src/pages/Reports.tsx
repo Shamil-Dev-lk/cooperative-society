@@ -254,7 +254,7 @@ const ReportsPage: React.FC = () => {
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">#</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Member No</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Name</th>
-                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">Address</th>
+                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">&#x0DBD;&#x0DD2;&#x0DB4;&#x0DD2;&#x0DB1;&#x0DBA;</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">NIC</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Division</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Category</th>
