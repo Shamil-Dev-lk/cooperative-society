@@ -15,129 +15,106 @@ interface PDFOptions {
 }
 
 export function exportToPDF(members: Member[], options: PDFOptions): void {
-  const printWindow = window.open('', '_blank');
-  if (!printWindow) return;
-
-  const tableRows = members.map((m, i) => `
-    <tr>
-      <td>${i + 1}</td>
-      <td>${m.member_no || ''}</td>
-      <td>${m.name || ''}</td>
-      <td>${m.nic || ''}</td>
-      <td>${formatDate(m.joined_date)}</td>
-      <td>${m.electoral_division?.division_name || ''}</td>
-      <td>${m.category?.category_name || ''}</td>
-      <td class="amount">Rs. ${(m.share_amount || 0).toLocaleString('en-LK')}</td>
-    </tr>`).join('');
+  const tableRows = members.map((m, i) => `<tr>
+    <td>${i + 1}</td>
+    <td>${m.member_no || ''}</td>
+    <td>${m.name || ''}</td>
+    <td>${m.nic || ''}</td>
+    <td>${formatDate(m.joined_date)}</td>
+    <td>${m.electoral_division?.division_name || ''}</td>
+    <td>${m.category?.category_name || ''}</td>
+    <td style="text-align:right;font-weight:600;color:#1a7a1a">Rs. ${(m.share_amount || 0).toLocaleString('en-LK')}</td>
+  </tr>`).join('');
 
   const totalCapital = members.reduce((s, m) => s + (m.share_amount || 0), 0);
+  const societyName = options.settings?.society_name || 'Cooperative Society';
 
-  printWindow.document.write(`<!DOCTYPE html>
+  const html = `<!DOCTYPE html>
 <html lang="si">
 <head>
-  <meta charset="UTF-8" />
+  <meta charset="UTF-8"/>
   <title>${options.title}</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; }
-    body {
-      font-family: "Noto Sans Sinhala", "Noto Sans", "Nirmala UI", "Iskoola Pota", "Arial Unicode MS", sans-serif;
-      font-size: 9.5px;
-      color: #222;
-      background: white;
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{
+      font-family:'Noto Sans Sinhala','Noto Sans','Nirmala UI','Iskoola Pota',Arial,sans-serif;
+      font-size:10px;color:#222;background:#fff;
     }
-    .page { padding: 12mm 14mm; }
-    .header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #CC0000; padding-bottom: 8px; }
-    .header h1 { font-size: 17px; font-weight: 700; color: #CC0000; margin-bottom: 3px; }
-    .header h2 { font-size: 12px; font-weight: 600; color: #444; margin-bottom: 3px; }
-    .header .meta { font-size: 8.5px; color: #777; }
-    .summary { display: flex; gap: 20px; justify-content: center; margin: 8px 0; font-size: 9px; color: #555; }
-    .summary span { background: #fff0f0; border: 1px solid #ffcccc; border-radius: 4px; padding: 3px 10px; }
-    .summary strong { color: #CC0000; }
-    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
-    thead { display: table-header-group; }
-    tr { page-break-inside: avoid; }
-    th {
-      background: #CC0000;
-      color: white;
-      padding: 5px 6px;
-      font-size: 9px;
-      font-weight: 700;
-      text-align: left;
-      border: 1px solid #aa0000;
-    }
-    td {
-      padding: 4px 6px;
-      border: 1px solid #e0e0e0;
-      font-size: 9px;
-      vertical-align: middle;
-    }
-    tr:nth-child(even) td { background: #fff8f8; }
-    tr:hover td { background: #ffe8e8; }
-    .amount { text-align: right; font-weight: 600; color: #1a7a1a; }
-    .footer {
-      text-align: center;
-      margin-top: 12px;
-      padding-top: 6px;
-      border-top: 1px solid #eee;
-      font-size: 8px;
-      color: #999;
-    }
-    @media print {
-      @page { size: A4 landscape; margin: 10mm 12mm; }
-      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-      thead { display: table-header-group; }
+    .no-print{background:#CC0000;color:#fff;border:none;padding:10px 28px;font-size:14px;
+      border-radius:6px;cursor:pointer;display:block;margin:16px auto;font-weight:700}
+    .no-print:hover{background:#aa0000}
+    .page{padding:10mm 14mm}
+    .header{text-align:center;border-bottom:2.5px solid #CC0000;padding-bottom:8px;margin-bottom:8px}
+    .header h1{font-size:17px;font-weight:700;color:#CC0000;margin-bottom:3px}
+    .header h2{font-size:12px;color:#444;font-weight:600;margin-bottom:2px}
+    .header small{font-size:8px;color:#888}
+    .stats{display:flex;gap:16px;justify-content:center;margin:8px 0;font-size:9px}
+    .stat{background:#fff0f0;border:1px solid #ffcccc;border-radius:4px;padding:3px 10px}
+    .stat b{color:#CC0000}
+    table{width:100%;border-collapse:collapse;margin-top:6px}
+    thead{display:table-header-group}
+    tr{page-break-inside:avoid}
+    th{background:#CC0000;color:#fff;padding:5px 5px;font-size:8.5px;font-weight:700;
+      text-align:left;border:1px solid #aa0000}
+    td{padding:4px 5px;border:1px solid #ddd;font-size:9px;vertical-align:middle}
+    tr:nth-child(even) td{background:#fff8f8}
+    .footer{text-align:center;margin-top:10px;font-size:8px;color:#aaa;border-top:1px solid #eee;padding-top:6px}
+    @media print{
+      .no-print{display:none!important}
+      @page{size:A4 landscape;margin:8mm 12mm}
+      body{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     }
   </style>
 </head>
 <body>
+  <button class="no-print" onclick="window.print()">Print / Save as PDF</button>
   <div class="page">
     <div class="header">
-      <h1>${options.settings?.society_name || 'Cooperative Society'}</h1>
+      <h1>${societyName}</h1>
       <h2>${options.title}</h2>
-      <div class="meta">Generated: ${new Date().toLocaleString('si-LK')}</div>
+      <small>Generated: ${new Date().toLocaleString('en-LK')}</small>
     </div>
-    <div class="summary">
-      <span>මුළු සාමාජිකයන්: <strong>${members.length}</strong></span>
-      <span>මුළු ප්‍රාග්ධනය: <strong>Rs. ${totalCapital.toLocaleString('en-LK')}</strong></span>
+    <div class="stats">
+      <div class="stat">Total Members: <b>${members.length}</b></div>
+      <div class="stat">Total Share Capital: <b>Rs. ${totalCapital.toLocaleString('en-LK')}</b></div>
     </div>
     <table>
-      <thead>
-        <tr>
-          <th>#</th>
-          <th>සාමාජික අංකය</th>
-          <th>නම</th>
-          <th>ජා.හැ.අංකය</th>
-          <th>සාමාජිකවූ දිනය</th>
-          <th>ඡන්ද කොට්ඨාශය</th>
-          <th>වර්ගය</th>
-          <th>කොටස් ප්‍රාග්ධනය</th>
-        </tr>
-      </thead>
-      <tbody>
-        ${tableRows}
-      </tbody>
+      <thead><tr>
+        <th>#</th>
+        <th>Member No</th>
+        <th>Name</th>
+        <th>NIC</th>
+        <th>Joined Date</th>
+        <th>Division</th>
+        <th>Category</th>
+        <th>Share Amount</th>
+      </tr></thead>
+      <tbody>${tableRows}</tbody>
     </table>
-    <div class="footer">
-      ${options.settings?.society_name || ''} &nbsp;|&nbsp; ${new Date().toLocaleDateString('si-LK')} &nbsp;|&nbsp; Total ${members.length} members
-    </div>
+    <div class="footer">${societyName} | ${new Date().toLocaleDateString('en-LK')} | ${members.length} members</div>
   </div>
-  <script>
-    document.fonts.ready.then(function() {
-      setTimeout(function() { window.print(); }, 500);
-    });
-  </script>
 </body>
-</html>`);
-  printWindow.document.close();
-}
+</html>`;
 
+  // Use blob URL — avoids popup blocker, works in all browsers
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.rel = 'noopener';
+  document.body.appendChild(a);
+  a.click();
+  document.body.removeChild(a);
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
 
 
 // ============================================================
 // Excel Export
 // ============================================================
+
 
 export function exportToExcel(members: Member[], title: string): void {
   const wsData = [
