@@ -1,5 +1,4 @@
-import jsPDF from 'jspdf';
-import autoTable from 'jspdf-autotable';
+// PDF export uses browser HTML print (supports Sinhala Unicode via Noto Sans Sinhala)
 import * as XLSX from 'xlsx';
 import Papa from 'papaparse';
 import type { Member, Settings } from '@/types';
@@ -16,75 +15,125 @@ interface PDFOptions {
 }
 
 export function exportToPDF(members: Member[], options: PDFOptions): void {
-  const doc = new jsPDF({ orientation: 'landscape', unit: 'mm', format: 'a4' });
+  const printWindow = window.open('', '_blank');
+  if (!printWindow) return;
 
-  // Header
-  doc.setFont('helvetica', 'bold');
-  doc.setFontSize(16);
-  doc.setTextColor(204, 0, 0);
-  doc.text(options.settings?.society_name || 'Cooperative Society', doc.internal.pageSize.width / 2, 15, { align: 'center' });
+  const tableRows = members.map((m, i) => `
+    <tr>
+      <td>${i + 1}</td>
+      <td>${m.member_no || ''}</td>
+      <td>${m.name || ''}</td>
+      <td>${m.nic || ''}</td>
+      <td>${formatDate(m.joined_date)}</td>
+      <td>${m.electoral_division?.division_name || ''}</td>
+      <td>${m.category?.category_name || ''}</td>
+      <td class="amount">Rs. ${(m.share_amount || 0).toLocaleString('en-LK')}</td>
+    </tr>`).join('');
 
-  doc.setFontSize(12);
-  doc.setTextColor(51, 51, 51);
-  doc.text(options.title, doc.internal.pageSize.width / 2, 23, { align: 'center' });
+  const totalCapital = members.reduce((s, m) => s + (m.share_amount || 0), 0);
 
-  if (options.subtitle) {
-    doc.setFontSize(10);
-    doc.setFont('helvetica', 'normal');
-    doc.text(options.subtitle, doc.internal.pageSize.width / 2, 30, { align: 'center' });
-  }
-
-  const generatedAt = `Generated: ${new Date().toLocaleString('en-LK')}`;
-  doc.setFontSize(8);
-  doc.setTextColor(100, 100, 100);
-  doc.text(generatedAt, 14, 30);
-
-  // Table
-  autoTable(doc, {
-    startY: 35,
-    head: [['#', 'Member No', 'Name', 'NIC', 'Joined Date', 'Division', 'Category', 'Share Amount']],
-    body: members.map((m, i) => [
-      i + 1,
-      m.member_no,
-      m.name,
-      m.nic,
-      formatDate(m.joined_date),
-      m.electoral_division?.division_name || '',
-      m.category?.category_name || '',
-      `Rs. ${(m.share_amount || 0).toLocaleString('en-LK')}`,
-    ]),
-    headStyles: {
-      fillColor: [204, 0, 0],
-      textColor: [255, 255, 255],
-      fontStyle: 'bold',
-      fontSize: 9,
-    },
-    bodyStyles: { fontSize: 8, textColor: [51, 51, 51] },
-    alternateRowStyles: { fillColor: [255, 245, 245] },
-    styles: { font: 'helvetica', cellPadding: 2 },
-    didDrawPage: (data) => {
-      // Footer with page number
-      const pageCount = (doc as unknown as { internal: { getNumberOfPages: () => number } }).internal.getNumberOfPages();
-      const currentPage = data.pageNumber;
-      doc.setFontSize(8);
-      doc.setTextColor(100, 100, 100);
-      doc.text(
-        `Page ${currentPage} of ${pageCount}`,
-        doc.internal.pageSize.width / 2,
-        doc.internal.pageSize.height - 5,
-        { align: 'center' }
-      );
-      doc.text(
-        options.settings?.society_name || '',
-        14,
-        doc.internal.pageSize.height - 5
-      );
-    },
-  });
-
-  const filename = `${options.title.replace(/\s+/g, '_')}_${Date.now()}.pdf`;
-  doc.save(filename);
+  printWindow.document.write(`<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8" />
+  <title>${options.title}</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body {
+      font-family: "Noto Sans Sinhala", "Noto Sans", "Nirmala UI", "Iskoola Pota", "Arial Unicode MS", sans-serif;
+      font-size: 9.5px;
+      color: #222;
+      background: white;
+    }
+    .page { padding: 12mm 14mm; }
+    .header { text-align: center; margin-bottom: 10px; border-bottom: 2px solid #CC0000; padding-bottom: 8px; }
+    .header h1 { font-size: 17px; font-weight: 700; color: #CC0000; margin-bottom: 3px; }
+    .header h2 { font-size: 12px; font-weight: 600; color: #444; margin-bottom: 3px; }
+    .header .meta { font-size: 8.5px; color: #777; }
+    .summary { display: flex; gap: 20px; justify-content: center; margin: 8px 0; font-size: 9px; color: #555; }
+    .summary span { background: #fff0f0; border: 1px solid #ffcccc; border-radius: 4px; padding: 3px 10px; }
+    .summary strong { color: #CC0000; }
+    table { width: 100%; border-collapse: collapse; margin-top: 8px; }
+    thead { display: table-header-group; }
+    tr { page-break-inside: avoid; }
+    th {
+      background: #CC0000;
+      color: white;
+      padding: 5px 6px;
+      font-size: 9px;
+      font-weight: 700;
+      text-align: left;
+      border: 1px solid #aa0000;
+    }
+    td {
+      padding: 4px 6px;
+      border: 1px solid #e0e0e0;
+      font-size: 9px;
+      vertical-align: middle;
+    }
+    tr:nth-child(even) td { background: #fff8f8; }
+    tr:hover td { background: #ffe8e8; }
+    .amount { text-align: right; font-weight: 600; color: #1a7a1a; }
+    .footer {
+      text-align: center;
+      margin-top: 12px;
+      padding-top: 6px;
+      border-top: 1px solid #eee;
+      font-size: 8px;
+      color: #999;
+    }
+    @media print {
+      @page { size: A4 landscape; margin: 10mm 12mm; }
+      body { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+      thead { display: table-header-group; }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="header">
+      <h1>${options.settings?.society_name || 'Cooperative Society'}</h1>
+      <h2>${options.title}</h2>
+      <div class="meta">Generated: ${new Date().toLocaleString('si-LK')}</div>
+    </div>
+    <div class="summary">
+      <span>මුළු සාමාජිකයන්: <strong>${members.length}</strong></span>
+      <span>මුළු ප්‍රාග්ධනය: <strong>Rs. ${totalCapital.toLocaleString('en-LK')}</strong></span>
+    </div>
+    <table>
+      <thead>
+        <tr>
+          <th>#</th>
+          <th>සාමාජික අංකය</th>
+          <th>නම</th>
+          <th>ජා.හැ.අංකය</th>
+          <th>සාමාජිකවූ දිනය</th>
+          <th>ඡන්ද කොට්ඨාශය</th>
+          <th>වර්ගය</th>
+          <th>කොටස් ප්‍රාග්ධනය</th>
+        </tr>
+      </thead>
+      <tbody>
+        ${tableRows}
+      </tbody>
+    </table>
+    <div class="footer">
+      ${options.settings?.society_name || ''} &nbsp;|&nbsp; ${new Date().toLocaleDateString('si-LK')} &nbsp;|&nbsp; Total ${members.length} members
+    </div>
+  </div>
+  <script>
+    document.fonts.ready.then(function() {
+      setTimeout(function() { window.print(); }, 500);
+    });
+  </script>
+</body>
+</html>`);
+  printWindow.document.close();
 }
+
+
 
 // ============================================================
 // Excel Export
