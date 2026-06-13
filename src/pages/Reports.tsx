@@ -254,6 +254,7 @@ const ReportsPage: React.FC = () => {
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">#</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Member No</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Name</th>
+                      <th className="px-3 py-2 text-left text-gray-500 font-semibold">Address</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">NIC</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Division</th>
                       <th className="px-3 py-2 text-left text-gray-500 font-semibold">Category</th>
@@ -264,13 +265,14 @@ const ReportsPage: React.FC = () => {
                   <tbody className="divide-y divide-gray-50">
                     {isLoading ? (
                       Array.from({ length: 5 }).map((_, i) => (
-                        <tr key={i}><td colSpan={8} className="px-3 py-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
+                        <tr key={i}><td colSpan={9} className="px-3 py-2"><div className="h-4 bg-gray-100 rounded animate-pulse" /></td></tr>
                       ))
                     ) : (members || []).slice(0, 100).map((m, i) => (
                       <tr key={m.id} className="hover:bg-gray-50">
                         <td className="px-3 py-2 text-gray-400">{i + 1}</td>
                         <td className="px-3 py-2 font-mono text-gray-500">{m.member_no}</td>
                         <td className="px-3 py-2 font-medium">{m.name}</td>
+                        <td className="px-3 py-2 text-gray-500 text-xs">{m.address || '—'}</td>
                         <td className="px-3 py-2 text-gray-400">{m.nic}</td>
                         <td className="px-3 py-2 text-blue-600">{m.electoral_division?.division_name || '—'}</td>
                         <td className="px-3 py-2 text-purple-600">{m.category?.category_name || '—'}</td>
@@ -284,7 +286,7 @@ const ReportsPage: React.FC = () => {
                   {!isLoading && (members?.length || 0) > 0 && (
                     <tfoot className="bg-gray-50 sticky bottom-0">
                       <tr>
-                        <td colSpan={7} className="px-3 py-2 font-semibold text-gray-600 text-xs">
+                        <td colSpan={8} className="px-3 py-2 font-semibold text-gray-600 text-xs">
                           Total ({formatNumber(members?.length || 0)} members)
                         </td>
                         <td className="px-3 py-2 text-right font-bold text-emerald-700 text-xs">
