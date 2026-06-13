@@ -19,6 +19,7 @@ export function exportToPDF(members: Member[], options: PDFOptions): void {
     <td>${i + 1}</td>
     <td>${m.member_no || ''}</td>
     <td>${m.name || ''}</td>
+    <td>${m.address || ''}</td>
     <td>${m.nic || ''}</td>
     <td>${formatDate(m.joined_date)}</td>
     <td>${m.electoral_division?.division_name || ''}</td>
@@ -84,6 +85,7 @@ export function exportToPDF(members: Member[], options: PDFOptions): void {
         <th>#</th>
         <th>Member No</th>
         <th>Name</th>
+        <th>Address</th>
         <th>NIC</th>
         <th>Joined Date</th>
         <th>Division</th>
@@ -121,11 +123,12 @@ export function exportToExcel(members: Member[], title: string): void {
     [title],
     [`Generated: ${new Date().toLocaleString('en-LK')}`],
     [],
-    ['#', 'Member No', 'Name', 'NIC', 'Joined Date', 'Division', 'Category', 'Share Amount'],
+    ['#', 'Member No', 'Name', 'Address', 'NIC', 'Joined Date', 'Division', 'Category', 'Share Amount'],
     ...members.map((m, i) => [
       i + 1,
       m.member_no,
       m.name,
+      m.address || '',
       m.nic,
       formatDate(m.joined_date),
       m.electoral_division?.division_name || '',
@@ -138,8 +141,8 @@ export function exportToExcel(members: Member[], title: string): void {
 
   // Column widths
   ws['!cols'] = [
-    { wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 15 },
-    { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 15 },
+    { wch: 5 }, { wch: 15 }, { wch: 30 }, { wch: 35 },
+    { wch: 15 }, { wch: 15 }, { wch: 25 }, { wch: 20 }, { wch: 15 },
   ];
 
   const wb = XLSX.utils.book_new();
