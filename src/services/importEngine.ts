@@ -186,7 +186,7 @@ function parseRawRow(
         parsed.joined_date = fixExcelDate(strVal);
         break;
       case 'share_amount': {
-        parsed.share_amount = fixShareAmount(value);
+        parsed.share_amount = fixShareAmount(value != null ? String(value) : '');
         break;
       }
     }
