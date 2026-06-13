@@ -217,7 +217,7 @@ export const memberService = {
 
     const [totalRes, shareRes, newRes, divRes] = await Promise.all([
       supabase.from('members').select('*', { count: 'exact', head: true }),
-      supabase.from('members').select('share_amount').limit(100000),
+      supabase.from('members').select('share_amount.sum()'),
       supabase
         .from('members')
         .select('*', { count: 'exact', head: true })
@@ -225,9 +225,7 @@ export const memberService = {
       supabase.from('electoral_divisions').select('*', { count: 'exact', head: true }),
     ]);
 
-    const totalShareCapital = (shareRes.data || []).reduce(
-      (sum: number, m: { share_amount: number }) => sum + (m.share_amount || 0),
-      0
+    const totalShareCapital = (shareRes.data as any)?.[0]?.sum ?? 0;
     );
 
     return {
