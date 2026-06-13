@@ -85,7 +85,7 @@ export function exportToPDF(members: Member[], options: PDFOptions): void {
         <th>#</th>
         <th>Member No</th>
         <th>Name</th>
-        <th>Address</th>
+        <th>ලිපිනය</th>
         <th>NIC</th>
         <th>Joined Date</th>
         <th>Division</th>
@@ -123,7 +123,7 @@ export function exportToExcel(members: Member[], title: string): void {
     [title],
     [`Generated: ${new Date().toLocaleString('en-LK')}`],
     [],
-    ['#', 'Member No', 'Name', 'Address', 'NIC', 'Joined Date', 'Division', 'Category', 'Share Amount'],
+    ['#', 'Member No', 'Name', 'ලිපිනය', 'NIC', 'Joined Date', 'Division', 'Category', 'Share Amount'],
     ...members.map((m, i) => [
       i + 1,
       m.member_no,
