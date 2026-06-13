@@ -296,28 +296,38 @@ export const memberService = {
   },
 
   async getAllForReport(filters: MemberFilters = {}): Promise<Member[]> {
-    let query = supabase
-      .from('members')
-      .select(
-        `
-        *,
-        electoral_division:electoral_divisions(id, division_name),
-        category:categories(id, category_name)
-        `
-      );
+    const allMembers: Member[] = [];
+    const pageSize = 1000;
+    let page = 0;
 
-    if (filters.search) {
-      query = query.or(
-        `member_no.ilike.%${filters.search}%,name.ilike.%${filters.search}%,nic.ilike.%${filters.search}%`
-      );
+    while (true) {
+      let query = supabase
+        .from('members')
+        .select(
+          `*, electoral_division:electoral_divisions(id, division_name), category:categories(id, category_name)`
+        )
+        .order('member_no')
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (filters.search) {
+        query = query.or(
+          `member_no.ilike.%${filters.search}%,name.ilike.%${filters.search}%,nic.ilike.%${filters.search}%`
+        );
+      }
+      if (filters.division_id) query = query.eq('electoral_division_id', filters.division_id);
+      if (filters.category_id) query = query.eq('category_id', filters.category_id);
+      if (filters.date_from) query = query.gte('joined_date', filters.date_from);
+      if (filters.date_to) query = query.lte('joined_date', filters.date_to);
+
+      const { data, error } = await query;
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+      allMembers.push(...(data as Member[]));
+      if (data.length < pageSize) break;
+      page++;
     }
-    if (filters.division_id) query = query.eq('electoral_division_id', filters.division_id);
-    if (filters.category_id) query = query.eq('category_id', filters.category_id);
-    if (filters.date_from) query = query.gte('joined_date', filters.date_from);
-    if (filters.date_to) query = query.lte('joined_date', filters.date_to);
 
-    const { data, error } = await query.order('member_no');
-    if (error) throw error;
-    return (data || []) as Member[];
+    return allMembers;
   },
+
 };
