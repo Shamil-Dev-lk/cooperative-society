@@ -42,6 +42,8 @@ const EditMemberPage: React.FC = () => {
           member_no: member.member_no,
           name: member.name,
           address: member.address,
+          email: member.email || '',
+          phone: member.phone || '',
           nic: member.nic,
           joined_date: member.joined_date,
           share_amount: member.share_amount,
@@ -68,6 +70,8 @@ const EditMemberPage: React.FC = () => {
   const fields: { name: keyof MemberFormData; label: string; labelSi: string; type?: string }[] = [
     { name: 'member_no', label: 'Member Number', labelSi: 'සාමාජික අංකය' },
     { name: 'name', label: 'Full Name', labelSi: 'නම' },
+    { name: 'email', label: 'Email Address', labelSi: 'විද්‍යුත් තැපෑල' },
+    { name: 'phone', label: 'Phone Number', labelSi: 'දුරකථන අංකය' },
     { name: 'nic', label: 'NIC Number', labelSi: 'ජා.හැ.ප. අංකය' },
     { name: 'address', label: 'Address', labelSi: 'ලිපිනය' },
     { name: 'joined_date', label: 'Joined Date', labelSi: 'සාමාජික වූ දිනය', type: 'date' },
