@@ -29,6 +29,8 @@ export interface Member {
   member_no: string;
   name: string;
   address: string;
+  email?: string;
+  phone?: string;
   joined_date: string;
   nic: string;
   share_amount: number;
@@ -63,6 +65,10 @@ export interface Settings {
   email: string;
   logo_url?: string;
   theme_color: string;
+  resend_api_key?: string;
+  twilio_sid?: string;
+  twilio_auth_token?: string;
+  twilio_from_number?: string;
   created_at?: string;
   updated_at?: string;
 }
@@ -87,6 +93,8 @@ export interface ParsedMember {
   member_no: string;
   name: string;
   address: string;
+  email?: string;
+  phone?: string;
   joined_date: string;
   nic: string;
   share_amount: number;
