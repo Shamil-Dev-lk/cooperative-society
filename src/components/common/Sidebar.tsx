@@ -111,6 +111,7 @@ export const Sidebar: React.FC = () => {
       <AnimatePresence>
         {sidebarOpen && (
           <motion.aside
+            key="sidebar-mobile-drawer"
             initial={{ x: -280 }}
             animate={{ x: 0 }}
             exit={{ x: -280 }}
@@ -173,6 +174,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
+            key="sidebar-logo-text"
             initial={{ opacity: 0, x: -10 }}
             animate={{ opacity: 1, x: 0 }}
             exit={{ opacity: 0, x: -10 }}
@@ -221,6 +223,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
             <AnimatePresence>
               {sidebarOpen && (
                 <motion.div
+                  key={`sidebar-item-text-${item.to}`}
                   initial={{ opacity: 0, x: -8 }}
                   animate={{ opacity: 1, x: 0 }}
                   exit={{ opacity: 0, x: -8 }}
@@ -250,6 +253,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
       <AnimatePresence>
         {sidebarOpen && (
           <motion.div
+            key="sidebar-user"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
@@ -271,6 +275,7 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
         <AnimatePresence>
           {sidebarOpen && (
             <motion.span
+              key="sidebar-logout"
               initial={{ opacity: 0 }}
               animate={{ opacity: 1 }}
               exit={{ opacity: 0 }}
