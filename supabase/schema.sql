@@ -367,14 +367,16 @@ BEGIN
         user_id,
         identity_data,
         provider,
+        provider_id,
         last_sign_in_at,
         created_at,
         updated_at
     ) VALUES (
-        uuid_generate_v4(),
+        new_user_id::text,
         new_user_id,
         jsonb_build_object('sub', new_user_id, 'email', NEW.email),
         'email',
+        new_user_id::text,
         NOW(),
         NOW(),
         NOW()
