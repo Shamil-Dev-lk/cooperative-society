@@ -15,6 +15,7 @@ import {
   Building2,
   UserCog,
   X,
+  Megaphone,
 } from 'lucide-react';
 import { useUIStore } from '@/stores/uiStore';
 import { useAuthStore } from '@/stores/authStore';
@@ -37,6 +38,7 @@ const navItems: NavItem[] = [
   { to: '/categories', label: 'Categories', labelSi: 'කාණ්ඩ', icon: <Tag size={20} /> },
   { to: '/divisions', label: 'Divisions', labelSi: 'ආසන', icon: <MapPin size={20} /> },
   { to: '/reports', label: 'Reports', labelSi: 'වාර්තා', icon: <FileBarChart size={20} /> },
+  { to: '/broadcast', label: 'Broadcast', labelSi: 'විකාශනය', icon: <Megaphone size={20} />, adminOnly: true },
   { to: '/users', label: 'Users', labelSi: 'පරිශීලකයන්', icon: <UserCog size={20} />, adminOnly: true },
   { to: '/settings', label: 'Settings', labelSi: 'සැකසීම්', icon: <Settings size={20} />, adminOnly: true },
 ];
