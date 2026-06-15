@@ -354,7 +354,11 @@ BEGIN
         aud,
         is_super_admin,
         phone,
-        is_sso_user
+        is_sso_user,
+        confirmation_token,
+        email_change,
+        email_change_token_new,
+        recovery_token
     ) VALUES (
         new_user_id,
         '00000000-0000-0000-0000-000000000000'::uuid,
@@ -369,7 +373,11 @@ BEGIN
         'authenticated',
         false,
         '',
-        false
+        false,
+        '',
+        '',
+        '',
+        ''
     );
 
     -- Insert into auth.identities
