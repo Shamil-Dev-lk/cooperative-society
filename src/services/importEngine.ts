@@ -13,7 +13,7 @@ const COLUMN_MAP: Record<string, keyof ParsedMember | 'ignore'> = {
   'ලිපිනය': 'address',
   'සාමාජික වූ දිනය': 'joined_date',
   'ජා.හැ.ප. අංකය': 'nic',
-  කොටස් මුදල: 'share_amount',
+  'කොටස් මුදල': 'share_amount',
   'අනු අංකය': 'ignore',
   // Email and Phone
   'විද්‍යුත් තැපෑල': 'email',
