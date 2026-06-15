@@ -429,7 +429,7 @@ const MembersPage: React.FC = () => {
                     </button>
                   </th>
                 )}
-                {['Member No', 'Name / නම', 'NIC', 'Address', 'Division', 'Category', 'Joined Date', 'Share Amount', 'Actions'].map((h) => (
+                {['Member No', 'Name / නම', 'NIC', 'Contact', 'Address', 'Division', 'Category', 'Joined Date', 'Share Amount', 'Actions'].map((h) => (
                   <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
                     {h}
                   </th>
@@ -438,11 +438,11 @@ const MembersPage: React.FC = () => {
             </thead>
             <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
               {isLoading
-                ? Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} cols={9} />)
+                ? Array.from({ length: 8 }).map((_, i) => <TableRowSkeleton key={i} cols={10} />)
                 : (data?.data || []).length === 0
                   ? (
                     <tr>
-                      <td colSpan={9} className="px-4 py-12 text-center text-gray-400">
+                      <td colSpan={10} className="px-4 py-12 text-center text-gray-400">
                         <Filter size={32} className="mx-auto mb-2 opacity-30" />
                         <p>No members found / සාමාජිකයන් හමු නොවීය</p>
                       </td>
@@ -472,6 +472,11 @@ const MembersPage: React.FC = () => {
                       <td className="px-4 py-3 font-mono text-xs text-gray-400">{m.member_no}</td>
                       <td className="px-4 py-3 font-medium text-text dark:text-text-dark">{m.name}</td>
                       <td className="px-4 py-3 text-gray-500 text-xs">{m.nic}</td>
+                      <td className="px-4 py-3 text-xs">
+                        {m.email && <div className="text-gray-600 truncate max-w-[150px]" title={m.email}>{m.email}</div>}
+                        {m.phone && <div className="text-gray-400 font-mono">{m.phone}</div>}
+                        {!m.email && !m.phone && <span className="text-gray-300">—</span>}
+                      </td>
                       <td className="px-4 py-3 text-gray-500 max-w-[150px] truncate" title={m.address}>{m.address}</td>
                       <td className="px-4 py-3">
                         <span className="bg-blue-50 text-blue-700 px-2 py-0.5 rounded-lg text-xs font-medium">
