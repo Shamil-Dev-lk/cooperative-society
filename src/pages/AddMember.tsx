@@ -59,6 +59,8 @@ const AddMemberPage: React.FC = () => {
   const fields: { name: keyof MemberFormData; label: string; labelSi: string; type?: string; placeholder?: string }[] = [
     { name: 'member_no', label: 'Member Number', labelSi: 'සාමාජික අංකය', placeholder: 'e.g. M-0001' },
     { name: 'name', label: 'Full Name', labelSi: 'නම', placeholder: 'Full name in Sinhala or English' },
+    { name: 'email', label: 'Email Address', labelSi: 'විද්‍යුත් තැපෑල', placeholder: 'e.g. member@email.com' },
+    { name: 'phone', label: 'Phone Number', labelSi: 'දුරකථන අංකය', placeholder: 'e.g. 0771234567' },
     { name: 'nic', label: 'NIC Number', labelSi: 'ජා.හැ.ප. අංකය', placeholder: 'e.g. 123456789V or 200012345678' },
     { name: 'address', label: 'Address', labelSi: 'ලිපිනය', placeholder: 'Full address' },
     { name: 'joined_date', label: 'Joined Date', labelSi: 'සාමාජික වූ දිනය', type: 'date' },
