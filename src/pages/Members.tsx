@@ -1,18 +1,18 @@
 import React, { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Search, Filter, Plus, Pencil, Eye, Download, ChevronLeft, ChevronRight,
-  SlidersHorizontal, X, Trash2, CheckSquare, Square
+  SlidersHorizontal, X, Trash2, CheckSquare, Square, Printer, FileText
 } from 'lucide-react';
 import { memberService } from '@/services/memberService';
 import { divisionService } from '@/services/divisionService';
 import { categoryService } from '@/services/categoryService';
 import { TableRowSkeleton } from '@/components/common/Skeleton';
 import { formatDate, formatNumber } from '@/utils/dateUtils';
-import type { MemberFilters } from '@/types';
+import type { MemberFilters, Member } from '@/types';
 import toast from 'react-hot-toast';
 
 
@@ -31,6 +31,13 @@ const MembersPage: React.FC = () => {
   const [filters, setFilters] = useState<MemberFilters>({});
   const [searchInput, setSearchInput] = useState('');
   const [showFilters, setShowFilters] = useState(false);
+  const [viewingMember, setViewingMember] = useState<Member | null>(null);
+
+  const handlePrintMember = () => {
+    document.body.classList.add('printing-member-profile');
+    window.print();
+    document.body.classList.remove('printing-member-profile');
+  };
 
   const { data, isLoading } = useQuery({
     queryKey: ['members', filters, page],
@@ -495,7 +502,7 @@ const MembersPage: React.FC = () => {
                       <td className="px-4 py-3">
                         <div className="flex items-center gap-1">
                           <button
-                            onClick={() => navigate(`/members/${m.id}/edit`)}
+                            onClick={() => setViewingMember(m)}
                             className="p-1.5 rounded-lg text-blue-500 hover:bg-blue-50 transition-colors"
                             title="View"
                           >
@@ -570,6 +577,126 @@ const MembersPage: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* View Member Modal */}
+      <AnimatePresence>
+        {viewingMember && (
+          <motion.div
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+            className="fixed inset-0 bg-black/60 backdrop-blur-sm z-50 flex items-center justify-center p-4 no-print"
+            onClick={() => setViewingMember(null)}
+          >
+            <motion.div
+              initial={{ scale: 0.95, y: 20 }}
+              animate={{ scale: 1, y: 0 }}
+              exit={{ scale: 0.95, y: 20 }}
+              className="bg-white dark:bg-surface-dark rounded-2xl w-full max-w-lg shadow-card overflow-hidden flex flex-col printable-profile"
+              onClick={(e) => e.stopPropagation()}
+            >
+              {/* Modal Header */}
+              <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between no-print">
+                <h3 className="font-bold text-gray-800 dark:text-gray-100 flex items-center gap-2">
+                  <Eye size={18} className="text-primary" />
+                  Member Profile / සාමාජික තොරතුරු
+                </h3>
+                <div className="flex gap-2">
+                  <button
+                    onClick={handlePrintMember}
+                    className="p-2 bg-blue-50 text-blue-600 hover:bg-blue-100 rounded-xl transition-all"
+                    title="Print Profile / මුද්‍රණය"
+                  >
+                    <Printer size={16} />
+                  </button>
+                  <button
+                    onClick={() => setViewingMember(null)}
+                    className="p-2 hover:bg-gray-100 dark:hover:bg-gray-700 rounded-xl transition-all"
+                  >
+                    <X size={18} />
+                  </button>
+                </div>
+              </div>
+
+              {/* Modal Content */}
+              <div className="p-6 space-y-6">
+                {/* Profile Header */}
+                <div className="flex items-center gap-4 border-b border-gray-150 dark:border-gray-700 pb-5">
+                  <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl uppercase">
+                    {viewingMember.name?.slice(0, 2) || 'M'}
+                  </div>
+                  <div>
+                    <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{viewingMember.name}</h4>
+                    <p className="text-xs text-gray-400 font-mono mt-0.5">Member No: {viewingMember.member_no}</p>
+                  </div>
+                </div>
+
+                {/* Details Grid */}
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-4 text-sm">
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium uppercase">NIC Number / ජා.හැ.ප.</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1 font-mono">{viewingMember.nic || '—'}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium uppercase">Joined Date / බැඳුණු දිනය</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1">{formatDate(viewingMember.joined_date)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium uppercase">Share Amount / කොටස් ප්‍රමාණය</p>
+                    <p className="text-emerald-600 font-bold mt-1">Rs. {formatNumber(viewingMember.share_amount || 0)}</p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium uppercase">Electoral Division / ආසනය</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1">
+                      {viewingMember.electoral_division?.division_name || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium uppercase">Category / කාණ්ඩය</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1">
+                      {viewingMember.category?.category_name || '—'}
+                    </p>
+                  </div>
+                  <div>
+                    <p className="text-xs text-gray-400 font-medium uppercase">Phone / දුරකථනය</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1 font-mono">{viewingMember.phone || '—'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-gray-400 font-medium uppercase">Email / විද්‍යුත් තැපෑල</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1">{viewingMember.email || '—'}</p>
+                  </div>
+                  <div className="md:col-span-2">
+                    <p className="text-xs text-gray-400 font-medium uppercase">Address / ලිපිනය</p>
+                    <p className="text-gray-700 dark:text-gray-200 mt-1 leading-relaxed">{viewingMember.address || '—'}</p>
+                  </div>
+                </div>
+
+                {/* Print watermark info */}
+                <div className="hidden print-only border-t border-gray-200 pt-4 mt-6 text-center text-[10px] text-gray-400">
+                  <p>Cooperative Society Management System — Official Member Record</p>
+                  <p className="mt-1">Generated: {new Date().toLocaleDateString()} {new Date().toLocaleTimeString()}</p>
+                </div>
+              </div>
+
+              {/* Modal Footer */}
+              <div className="bg-gray-50 dark:bg-gray-800 px-6 py-4 border-t border-gray-100 dark:border-gray-700 flex justify-end gap-3 no-print">
+                <button
+                  onClick={handlePrintMember}
+                  className="flex items-center gap-1.5 px-4 py-2 bg-primary hover:bg-primary-hover text-white rounded-xl text-xs font-semibold shadow-sm hover:shadow"
+                >
+                  <Printer size={13} /> Print Detail / මුද්‍රණය
+                </button>
+                <button
+                  onClick={() => setViewingMember(null)}
+                  className="px-4 py-2 border border-gray-200 hover:bg-gray-50 rounded-xl text-xs font-semibold text-gray-700"
+                >
+                  Close / වසන්න
+                </button>
+              </div>
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
     </div>
   );
