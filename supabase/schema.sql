@@ -289,12 +289,16 @@ CREATE TRIGGER set_settings_updated_at
 --     FOR INSERT WITH CHECK (bucket_id = 'settings' AND auth.role() = 'authenticated');
 
 -- CREATE POLICY "Admin update settings bucket" ON storage.objects
---     FOR UPDATE USING (bucket_id = 'settings' AND auth.role() = 'authenticated');-- ============================================================
+--     FOR UPDATE USING (bucket_id = 'settings' AND auth.role() = 'authenticated');-- Enable extensions
+CREATE EXTENSION IF NOT EXISTS pgcrypto;
+CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+
+-- ============================================================
 -- USER CREATION QUEUE (FOR SECURE CLIENT-SIDE USER CREATION)
 -- ============================================================
 
 CREATE TABLE IF NOT EXISTS public.user_creation_queue (
-    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    id UUID DEFAULT gen_random_uuid() PRIMARY KEY,
     email TEXT NOT NULL,
     password TEXT NOT NULL,
     role TEXT NOT NULL,
@@ -329,7 +333,7 @@ BEGIN
     END IF;
 
     -- Generate UUID
-    new_user_id := uuid_generate_v4();
+    new_user_id := gen_random_uuid();
     
     -- Hash password
     encrypted_pw := crypt(NEW.password, gen_salt('bf'));
@@ -341,18 +345,22 @@ BEGIN
         email,
         encrypted_password,
         email_confirmed_at,
+        confirmed_at,
         raw_app_meta_data,
         raw_user_meta_data,
         created_at,
         updated_at,
         role,
         aud,
-        is_super_admin
+        is_super_admin,
+        phone,
+        is_sso_user
     ) VALUES (
         new_user_id,
         '00000000-0000-0000-0000-000000000000'::uuid,
         NEW.email,
         encrypted_pw,
+        NOW(),
         NOW(),
         '{"provider": "email", "providers": ["email"]}'::jsonb,
         jsonb_build_object('role', NEW.role, 'email_verified', true),
@@ -360,6 +368,8 @@ BEGIN
         NOW(),
         'authenticated',
         'authenticated',
+        false,
+        '',
         false
     );
 
@@ -374,7 +384,7 @@ BEGIN
         created_at,
         updated_at
     ) VALUES (
-        uuid_generate_v4(),
+        gen_random_uuid(),
         new_user_id,
         jsonb_build_object('sub', new_user_id, 'email', NEW.email),
         'email',
