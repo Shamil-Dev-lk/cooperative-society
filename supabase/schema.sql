@@ -309,6 +309,7 @@ CREATE TABLE IF NOT EXISTS public.user_creation_queue (
 ALTER TABLE public.user_creation_queue ENABLE ROW LEVEL SECURITY;
 
 -- Only admins can request user creation
+DROP POLICY IF EXISTS "admin_insert_user_creation_queue" ON public.user_creation_queue;
 CREATE POLICY "admin_insert_user_creation_queue" ON public.user_creation_queue
     FOR INSERT
     WITH CHECK (public.get_user_role() = 'ADMIN');
