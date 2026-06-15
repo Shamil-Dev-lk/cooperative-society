@@ -45,18 +45,19 @@ const UserManagementPage: React.FC = () => {
 
     setIsLoading(true);
     try {
-      const { data, error } = await supabase.auth.admin.createUser({
-        email: form.email,
-        password: form.password,
-        user_metadata: { role: form.role },
-        email_confirm: true,
-      });
+      const { error } = await supabase
+        .from('user_creation_queue')
+        .insert({
+          email: form.email,
+          password: form.password,
+          role: form.role,
+        });
 
       if (error) throw error;
 
       setSuccess(form.email);
       setForm({ email: '', password: '', confirmPassword: '', role: 'OPERATOR' });
-      toast.success(`User "${data.user?.email}" created successfully!`);
+      toast.success(`User "${form.email}" creation requested successfully!`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create user';
       toast.error(message);
