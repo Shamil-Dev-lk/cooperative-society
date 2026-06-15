@@ -5,7 +5,8 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/stores/authStore';
 import {
   Search, Filter, Plus, Pencil, Eye, Download, ChevronLeft, ChevronRight,
-  SlidersHorizontal, X, Trash2, CheckSquare, Square, Printer, FileText
+  SlidersHorizontal, X, Trash2, CheckSquare, Square, Printer, FileText,
+  User
 } from 'lucide-react';
 import { memberService } from '@/services/memberService';
 import { divisionService } from '@/services/divisionService';
@@ -623,12 +624,14 @@ const MembersPage: React.FC = () => {
               <div className="p-6 space-y-6">
                 {/* Profile Header */}
                 <div className="flex items-center gap-4 border-b border-gray-150 dark:border-gray-700 pb-5">
-                  <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xl uppercase">
-                    {viewingMember.name?.slice(0, 2) || 'M'}
+                  <div className="w-16 h-16 rounded-full bg-primary/10 text-primary flex items-center justify-center flex-shrink-0">
+                    <User size={32} />
                   </div>
                   <div>
-                    <h4 className="text-lg font-bold text-gray-800 dark:text-gray-100">{viewingMember.name}</h4>
-                    <p className="text-xs text-gray-400 font-mono mt-0.5">Member No: {viewingMember.member_no}</p>
+                    <h4 className="text-xl font-bold text-gray-800 dark:text-gray-100 leading-tight">{viewingMember.name}</h4>
+                    <span className="inline-block bg-primary/10 text-primary text-xs font-bold font-mono px-2.5 py-1 rounded-lg mt-1.5">
+                      Member No: {viewingMember.member_no}
+                    </span>
                   </div>
                 </div>
 
