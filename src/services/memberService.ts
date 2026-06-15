@@ -68,7 +68,9 @@ export const memberService = {
         `member_no.ilike."%${escapedSearch}%"`,
         `name.ilike."%${escapedSearch}%"`,
         `nic.ilike."%${escapedSearch}%"`,
-        `address.ilike."%${escapedSearch}%"`
+        `address.ilike."%${escapedSearch}%"`,
+        `email.ilike."%${escapedSearch}%"`,
+        `phone.ilike."%${escapedSearch}%"`
       ];
       const dateTerms = parseDateSearch(filters.search);
       searchTerms.push(...dateTerms);
@@ -176,6 +178,8 @@ export const memberService = {
         member_no: String(m.member_no ?? '').trim() || `AUTO-${Date.now()}-${i}`,
         name: String(m.name ?? '').trim(),
         address: String(m.address ?? '').trim() || '',
+        email: m.email ? String(m.email).trim() : '',
+        phone: m.phone ? String(m.phone).trim() : '',
         nic: String(m.nic ?? '').trim() || '',
         joined_date: m.joined_date || new Date().toISOString().split('T')[0],
         share_amount: Number(m.share_amount) || 0,
@@ -239,6 +243,8 @@ export const memberService = {
       const batch = members.slice(i, i + batchSize).map((m) => ({
         ...m,
         member_no: String(m.member_no ?? '').trim(),
+        email: m.email ? String(m.email).trim() : '',
+        phone: m.phone ? String(m.phone).trim() : '',
         share_amount: Number(m.share_amount) || 0,
       }));
       // upsert WITHOUT ignoreDuplicates → updates existing records
@@ -366,7 +372,9 @@ export const memberService = {
           `member_no.ilike."%${escapedSearch}%"`,
           `name.ilike."%${escapedSearch}%"`,
           `nic.ilike."%${escapedSearch}%"`,
-          `address.ilike."%${escapedSearch}%"`
+          `address.ilike."%${escapedSearch}%"`,
+          `email.ilike."%${escapedSearch}%"`,
+          `phone.ilike."%${escapedSearch}%"`
         ];
         const dateTerms = parseDateSearch(filters.search);
         searchTerms.push(...dateTerms);
