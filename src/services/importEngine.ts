@@ -13,8 +13,22 @@ const COLUMN_MAP: Record<string, keyof ParsedMember | 'ignore'> = {
   'ලිපිනය': 'address',
   'සාමාජික වූ දිනය': 'joined_date',
   'ජා.හැ.ප. අංකය': 'nic',
-  'කොටස් මුදල': 'share_amount',
+  කොටස් මුදල: 'share_amount',
   'අනු අංකය': 'ignore',
+  // Email and Phone
+  'විද්‍යුත් තැපෑල': 'email',
+  'email': 'email',
+  'e-mail': 'email',
+  'e mail': 'email',
+  'දුරකථන අංකය': 'phone',
+  'දුරකථනය': 'phone',
+  'දුරකථන': 'phone',
+  'phone': 'phone',
+  'phone number': 'phone',
+  'mobile': 'phone',
+  'mobile number': 'phone',
+  'telephone': 'phone',
+  'tel': 'phone',
   // English (normalized lowercase)
   'member_no': 'member_no',
   'member no': 'member_no',
@@ -179,6 +193,12 @@ function parseRawRow(
       case 'address':
         parsed.address = strVal;
         break;
+      case 'email':
+        parsed.email = strVal;
+        break;
+      case 'phone':
+        parsed.phone = strVal;
+        break;
       case 'nic':
         parsed.nic = strVal;
         break;
@@ -199,6 +219,8 @@ function parseRawRow(
 
   // Fill defaults for optional fields
   if (!parsed.address) parsed.address = '';
+  if (!parsed.email) parsed.email = '';
+  if (!parsed.phone) parsed.phone = '';
   if (!parsed.nic) parsed.nic = '';
   if (!parsed.joined_date) parsed.joined_date = new Date().toISOString().split('T')[0];
   if (parsed.share_amount === undefined) parsed.share_amount = 0;
@@ -418,17 +440,17 @@ export function applyDuplicateDetection(
 // ============================================================
 export function downloadImportTemplate(): void {
   const templateData = [
-    ['member_no', 'name', 'address', 'nic', 'joined_date', 'share_amount'],
-    ['M001', 'Kamal Perera', 'No 10, Colombo', '199012345678', '2024-01-15', '5000'],
-    ['M002', 'Nimal Silva', 'No 20, Kandy', '198512345678', '2024-02-01', '3000'],
-    ['M003', 'Sunil Fernando', 'No 30, Galle', '200012345678', '2024-03-10', '7500'],
-    ['M004', 'Kumari Perera', 'No 40, Matara', '199512345678', '2024-04-01', '4500'],
-    ['M005', 'Ruwan Silva', 'No 50, Negombo', '200212345678', '2024-05-15', '6000'],
+    ['member_no', 'name', 'address', 'email', 'phone', 'nic', 'joined_date', 'share_amount'],
+    ['M001', 'Kamal Perera', 'No 10, Colombo', 'kamal@gmail.com', '0771234567', '199012345678', '2024-01-15', '5000'],
+    ['M002', 'Nimal Silva', 'No 20, Kandy', 'nimal@gmail.com', '0772345678', '198512345678', '2024-02-01', '3000'],
+    ['M003', 'Sunil Fernando', 'No 30, Galle', 'sunil@gmail.com', '0773456789', '200012345678', '2024-03-10', '7500'],
+    ['M004', 'Kumari Perera', 'No 40, Matara', 'kumari@gmail.com', '0774567890', '199512345678', '2024-04-01', '4500'],
+    ['M005', 'Ruwan Silva', 'No 50, Negombo', 'ruwan@gmail.com', '0775678901', '200212345678', '2024-05-15', '6000'],
   ];
 
   const ws = XLSX.utils.aoa_to_sheet(templateData);
   ws['!cols'] = [
-    { wch: 12 }, { wch: 25 }, { wch: 30 }, { wch: 15 },
+    { wch: 12 }, { wch: 25 }, { wch: 30 }, { wch: 20 }, { wch: 15 }, { wch: 15 },
     { wch: 15 }, { wch: 15 },
   ];
 
