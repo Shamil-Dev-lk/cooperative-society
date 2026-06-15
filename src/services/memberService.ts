@@ -45,6 +45,26 @@ function parseDateSearch(search: string): string[] {
   return [];
 }
 
+let checkedColumns = false;
+let hasContactColumns = false;
+
+async function checkContactColumns(): Promise<boolean> {
+  if (checkedColumns) return hasContactColumns;
+  try {
+    const { error } = await supabase
+      .from('members')
+      .select('email,phone')
+      .limit(1);
+    if (!error) {
+      hasContactColumns = true;
+    }
+  } catch {
+    hasContactColumns = false;
+  }
+  checkedColumns = true;
+  return hasContactColumns;
+}
+
 export const memberService = {
   async getMembers(
     filters: MemberFilters = {},
@@ -68,10 +88,15 @@ export const memberService = {
         `member_no.ilike."%${escapedSearch}%"`,
         `name.ilike."%${escapedSearch}%"`,
         `nic.ilike."%${escapedSearch}%"`,
-        `address.ilike."%${escapedSearch}%"`,
-        `email.ilike."%${escapedSearch}%"`,
-        `phone.ilike."%${escapedSearch}%"`
+        `address.ilike."%${escapedSearch}%"`
       ];
+      const supportsContact = await checkContactColumns();
+      if (supportsContact) {
+        searchTerms.push(
+          `email.ilike."%${escapedSearch}%"`,
+          `phone.ilike."%${escapedSearch}%"`
+        );
+      }
       const dateTerms = parseDateSearch(filters.search);
       searchTerms.push(...dateTerms);
       query = query.or(searchTerms.join(','));
@@ -372,10 +397,15 @@ export const memberService = {
           `member_no.ilike."%${escapedSearch}%"`,
           `name.ilike."%${escapedSearch}%"`,
           `nic.ilike."%${escapedSearch}%"`,
-          `address.ilike."%${escapedSearch}%"`,
-          `email.ilike."%${escapedSearch}%"`,
-          `phone.ilike."%${escapedSearch}%"`
+          `address.ilike."%${escapedSearch}%"`
         ];
+        const supportsContact = await checkContactColumns();
+        if (supportsContact) {
+          searchTerms.push(
+            `email.ilike."%${escapedSearch}%"`,
+            `phone.ilike."%${escapedSearch}%"`
+          );
+        }
         const dateTerms = parseDateSearch(filters.search);
         searchTerms.push(...dateTerms);
         query = query.or(searchTerms.join(','));
