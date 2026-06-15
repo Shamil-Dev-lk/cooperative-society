@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
@@ -149,6 +149,15 @@ const MembersPage: React.FC = () => {
     setPage(1);
   }, [searchInput]);
 
+  // Auto-search with 500ms debounce as user types
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setFilters((f) => ({ ...f, search: searchInput || undefined }));
+      setPage(1);
+    }, 500);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const handleFilterChange = (key: keyof MemberFilters, value: string) => {
     setFilters((f) => ({ ...f, [key]: value || undefined }));
     setPage(1);
@@ -214,11 +223,19 @@ const MembersPage: React.FC = () => {
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
                 onKeyDown={(e) => e.key === 'Enter' && handleSearch()}
-                placeholder="Search by member no, name, NIC..."
+                placeholder="Search name, member no, NIC, address, year (e.g. 1975)..."
                 className="w-full pl-9 pr-4 py-2.5 rounded-xl border border-gray-200 text-sm
                   focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
                   dark:bg-gray-800 dark:border-gray-600 dark:text-white"
               />
+              {searchInput && (
+                <button
+                  onClick={() => { setSearchInput(''); setFilters(f => ({ ...f, search: undefined })); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-red-500"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </div>
             <button
               onClick={handleSearch}
@@ -254,6 +271,14 @@ const MembersPage: React.FC = () => {
               <X size={14} /> Clear
             </button>
           )}
+        </div>
+
+        {/* Search hints */}
+        <div className="flex flex-wrap gap-x-4 gap-y-1 mt-2 px-1">
+          <span className="text-xs text-gray-400">ලිපිනය: type village or address</span>
+          <span className="text-xs text-gray-400">Year: type <b className="text-primary">1975</b></span>
+          <span className="text-xs text-gray-400">Date: type <b className="text-primary">10/11/1971</b> or <b className="text-primary">1971-11-10</b></span>
+          <span className="text-xs text-gray-400">Month: type <b className="text-primary">11/1971</b></span>
         </div>
 
         {showFilters && (
@@ -293,7 +318,9 @@ const MembersPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">From Date</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">From Date
+                <span className="text-gray-400 font-normal ml-1">(Joined)</span>
+              </label>
               <input
                 type="date"
                 value={filters.date_from || ''}
@@ -304,7 +331,9 @@ const MembersPage: React.FC = () => {
             </div>
 
             <div>
-              <label className="block text-xs font-medium text-gray-500 mb-1">To Date</label>
+              <label className="block text-xs font-medium text-gray-500 mb-1">To Date
+                <span className="text-gray-400 font-normal ml-1">(Joined)</span>
+              </label>
               <input
                 type="date"
                 value={filters.date_to || ''}
