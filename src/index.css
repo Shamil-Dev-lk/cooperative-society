@@ -159,4 +159,21 @@
   .no-print { display: none !important; }
   body { font-size: 11px; }
   @page { margin: 15mm; }
+
+  body.printing-member-profile #root {
+    display: none !important;
+  }
+  body.printing-member-profile .printable-profile {
+    display: block !important;
+    position: absolute;
+    left: 0;
+    top: 0;
+    width: 100%;
+    margin: 0;
+    padding: 20px;
+    background: white !important;
+    color: black !important;
+    border: none !important;
+    box-shadow: none !important;
+  }
 }
