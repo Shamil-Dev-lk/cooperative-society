@@ -27,14 +27,20 @@ jobs:
         uses: actions/setup-node@v4
         with:
           node-version: "20"
+          cache: "npm"
 
       - name: Install dependencies
-        run: npm install
+        run: npm ci
+
+      - name: Generate version file
+        run: |
+          echo "{\"version\":\"$(git rev-parse --short HEAD)-$(date +%s)\"}" > public/version.json
+          cat public/version.json
 
       - name: Build project
         env:
-          VITE_SUPABASE_URL: "https://qnzkownqbkhifenzsgxf.supabase.co"
-          VITE_SUPABASE_ANON_KEY: "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuemtvd25xYmtoaWZlbnpzZ3hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjUxMzgsImV4cCI6MjA5Njc0MTEzOH0.dphxn5visOA3jxbkLqRb5wEL7JXmTvqI2gzHVtFrGFM"
+          VITE_SUPABASE_URL: ${{ secrets.VITE_SUPABASE_URL }}
+          VITE_SUPABASE_ANON_KEY: ${{ secrets.VITE_SUPABASE_ANON_KEY }}
         run: npm run build
 
       - name: Setup Pages
