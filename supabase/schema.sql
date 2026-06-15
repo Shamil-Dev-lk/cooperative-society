@@ -289,7 +289,106 @@ CREATE TRIGGER set_settings_updated_at
 --     FOR INSERT WITH CHECK (bucket_id = 'settings' AND auth.role() = 'authenticated');
 
 -- CREATE POLICY "Admin update settings bucket" ON storage.objects
---     FOR UPDATE USING (bucket_id = 'settings' AND auth.role() = 'authenticated');
+--     FOR UPDATE USING (bucket_id = 'settings' AND auth.role() = 'authenticated');-- ============================================================
+-- USER CREATION QUEUE (FOR SECURE CLIENT-SIDE USER CREATION)
+-- ============================================================
+
+CREATE TABLE IF NOT EXISTS public.user_creation_queue (
+    id UUID DEFAULT uuid_generate_v4() PRIMARY KEY,
+    email TEXT NOT NULL,
+    password TEXT NOT NULL,
+    role TEXT NOT NULL,
+    created_at TIMESTAMPTZ DEFAULT NOW()
+);
+
+-- Enable RLS
+ALTER TABLE public.user_creation_queue ENABLE ROW LEVEL SECURITY;
+
+-- Only admins can request user creation
+CREATE POLICY "admin_insert_user_creation_queue" ON public.user_creation_queue
+    FOR INSERT
+    WITH CHECK (public.get_user_role() = 'ADMIN');
+
+-- Security definer trigger function to handle user creation
+CREATE OR REPLACE FUNCTION public.handle_user_creation()
+RETURNS TRIGGER AS $$
+DECLARE
+    new_user_id UUID;
+    encrypted_pw TEXT;
+BEGIN
+    -- Check if calling user is actually an ADMIN
+    IF public.get_user_role() != 'ADMIN' THEN
+        RAISE EXCEPTION 'Only administrators can create new users.';
+    END IF;
+
+    -- Check if user already exists
+    IF EXISTS (SELECT 1 FROM auth.users WHERE email = NEW.email) THEN
+        RAISE EXCEPTION 'A user with this email already exists.';
+    END IF;
+
+    -- Generate UUID
+    new_user_id := uuid_generate_v4();
+    
+    -- Hash password
+    encrypted_pw := crypt(NEW.password, gen_salt('bf'));
+
+    -- Insert into auth.users
+    INSERT INTO auth.users (
+        id,
+        instance_id,
+        email,
+        encrypted_password,
+        email_confirmed_at,
+        raw_app_meta_data,
+        raw_user_meta_data,
+        created_at,
+        updated_at,
+        role,
+        aud,
+        is_super_admin
+    ) VALUES (
+        new_user_id,
+        '00000000-0000-0000-0000-000000000000',
+        NEW.email,
+        encrypted_pw,
+        NOW(),
+        '{"provider": "email", "providers": ["email"]}'::jsonb,
+        jsonb_build_object('role', NEW.role, 'email_verified', true),
+        NOW(),
+        NOW(),
+        'authenticated',
+        'authenticated',
+        false
+    );
+
+    -- Insert into auth.identities
+    INSERT INTO auth.identities (
+        id,
+        user_id,
+        identity_data,
+        provider,
+        last_sign_in_at,
+        created_at,
+        updated_at
+    ) VALUES (
+        uuid_generate_v4(),
+        new_user_id,
+        jsonb_build_object('sub', new_user_id, 'email', NEW.email),
+        'email',
+        NOW(),
+        NOW(),
+        NOW()
+    );
+
+    -- Return NULL to prevent storing the row in the table (keeps passwords out of DB)
+    RETURN NULL;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE TRIGGER trigger_user_creation
+    BEFORE INSERT ON public.user_creation_queue
+    FOR EACH ROW
+    EXECUTE FUNCTION public.handle_user_creation();
 
 -- ============================================================
 -- GRANT PERMISSIONS
@@ -299,6 +398,7 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 GRANT EXECUTE ON FUNCTION public.get_user_role() TO authenticated;
+
 
 -- ============================================================
 -- HOW TO CREATE ADMIN USER:
