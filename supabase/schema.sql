@@ -372,12 +372,12 @@ BEGIN
         'authenticated',
         'authenticated',
         false,
-        '',
-        false,
-        '',
-        '',
-        '',
-        ''
+        NULL,    -- phone set to NULL to satisfy unique constraint
+        false,   -- is_sso_user
+        '',      -- confirmation_token (MUST NOT BE NULL)
+        '',      -- email_change (MUST NOT BE NULL)
+        '',      -- email_change_token_new (MUST NOT BE NULL)
+        ''       -- recovery_token (MUST NOT BE NULL)
     );
 
     -- Insert into auth.identities
