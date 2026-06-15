@@ -63,11 +63,12 @@ export const memberService = {
       );
 
     if (filters.search) {
+      const escapedSearch = filters.search.replace(/"/g, '\\"');
       const searchTerms = [
-        `member_no.ilike.%${filters.search}%`,
-        `name.ilike.%${filters.search}%`,
-        `nic.ilike.%${filters.search}%`,
-        `address.ilike.%${filters.search}%`
+        `member_no.ilike."%${escapedSearch}%"`,
+        `name.ilike."%${escapedSearch}%"`,
+        `nic.ilike."%${escapedSearch}%"`,
+        `address.ilike."%${escapedSearch}%"`
       ];
       const dateTerms = parseDateSearch(filters.search);
       searchTerms.push(...dateTerms);
@@ -360,11 +361,12 @@ export const memberService = {
         .range(page * pageSize, (page + 1) * pageSize - 1);
 
       if (filters.search) {
+        const escapedSearch = filters.search.replace(/"/g, '\\"');
         const searchTerms = [
-          `member_no.ilike.%${filters.search}%`,
-          `name.ilike.%${filters.search}%`,
-          `nic.ilike.%${filters.search}%`,
-          `address.ilike.%${filters.search}%`
+          `member_no.ilike."%${escapedSearch}%"`,
+          `name.ilike."%${escapedSearch}%"`,
+          `nic.ilike."%${escapedSearch}%"`,
+          `address.ilike."%${escapedSearch}%"`
         ];
         const dateTerms = parseDateSearch(filters.search);
         searchTerms.push(...dateTerms);
