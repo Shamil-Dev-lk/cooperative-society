@@ -27,11 +27,20 @@ const DivisionsPage: React.FC = () => {
     mutationFn: (name: string) => divisionService.create(name),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['divisions'] });
-      toast.success('Division created');
+      toast.success('Division created successfully!');
       setNewName('');
       setShowAddForm(false);
     },
-    onError: () => toast.error('Failed to create division'),
+    onError: (error: unknown) => {
+      const msg = (error as { message?: string })?.message || 'Unknown error';
+      if (msg.includes('duplicate') || msg.includes('unique')) {
+        toast.error('Division name already exists!');
+      } else if (msg.includes('JWT') || msg.includes('auth') || msg.includes('401')) {
+        toast.error('Session expired. Please logout and login again.');
+      } else {
+        toast.error(`Failed to create division: ${msg}`);
+      }
+    },
   });
 
   const updateMutation = useMutation({
@@ -42,7 +51,10 @@ const DivisionsPage: React.FC = () => {
       toast.success('Division updated');
       setEditId(null);
     },
-    onError: () => toast.error('Failed to update division'),
+    onError: (error: unknown) => {
+      const msg = (error as { message?: string })?.message || 'Unknown error';
+      toast.error(`Failed to update: ${msg}`);
+    },
   });
 
   const deleteMutation = useMutation({
