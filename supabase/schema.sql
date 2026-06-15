@@ -43,6 +43,10 @@ CREATE TABLE IF NOT EXISTS public.settings (
     email TEXT DEFAULT '',
     logo_url TEXT DEFAULT '',
     theme_color TEXT DEFAULT '#CC0000',
+    resend_api_key TEXT DEFAULT '',
+    twilio_sid TEXT DEFAULT '',
+    twilio_auth_token TEXT DEFAULT '',
+    twilio_from_number TEXT DEFAULT '',
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -56,6 +60,8 @@ CREATE TABLE IF NOT EXISTS public.members (
     member_no TEXT NOT NULL UNIQUE,
     name TEXT NOT NULL,
     address TEXT DEFAULT '',
+    email TEXT DEFAULT '',
+    phone TEXT DEFAULT '',
     joined_date DATE,
     nic TEXT,
     share_amount NUMERIC(14, 2) DEFAULT 0,
