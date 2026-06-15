@@ -8,6 +8,7 @@ import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { isSupabaseConfigured } from '@/services/supabaseClient';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
+import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import './index.css';
 
 const queryClient = new QueryClient({
@@ -71,12 +72,18 @@ const SetupBanner: React.FC = () => (
   </div>
 );
 
+// Auto-update wrapper — checks for new deployments every 2 minutes
+const AutoUpdatingApp: React.FC = () => {
+  useAutoUpdate();
+  return isSupabaseConfigured ? <AppRouter /> : <SetupBanner />;
+};
+
 ReactDOM.createRoot(document.getElementById('root')!).render(
   <React.StrictMode>
     <ErrorBoundary>
       <QueryClientProvider client={queryClient}>
         <BrowserRouter>
-          {!isSupabaseConfigured ? <SetupBanner /> : <AppRouter />}
+          <AutoUpdatingApp />
           <Toaster
             position="top-right"
             toastOptions={{
