@@ -25,10 +25,9 @@ const queryClient = new QueryClient({
 // Bootstrap auth state
 async function bootstrap() {
   const { setUser, setLoading } = useAuthStore.getState();
-  if (!isSupabaseConfigured) {
-    setLoading(false);
-    return;
-  }
+  if (!isSupabaseConfigured) { setLoading(false); return; }
+
+  // Restore session on load
   try {
     const user = await authService.getSession();
     setUser(user);
@@ -37,12 +36,27 @@ async function bootstrap() {
   } finally {
     setLoading(false);
   }
+
+  // Listen for auth state changes (TOKEN_REFRESHED, SIGNED_OUT, etc.)
   try {
     authService.onAuthStateChange((user) => setUser(user));
   } catch { /* ignore */ }
+
+  // Auto-refresh session every 30 minutes to prevent "invalid api key" errors
+  setInterval(async () => {
+    try {
+      const { supabase } = await import('@/services/supabaseClient');
+      const { data, error } = await supabase.auth.refreshSession();
+      if (error || !data.session) {
+        // Session refresh failed — clear user and let app redirect to login
+        useAuthStore.getState().setUser(null);
+      }
+    } catch { /* silent fail */ }
+  }, 30 * 60 * 1000); // every 30 minutes
 }
 
 bootstrap();
+
 
 // Setup banner when .env not configured
 const SetupBanner: React.FC = () => (
