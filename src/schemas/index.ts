@@ -17,6 +17,17 @@ export const memberSchema = z.object({
     .string()
     .min(1, 'Address is required / ලිපිනය අවශ්‍යයි')
     .max(500, 'Address too long'),
+  email: z
+    .string()
+    .email('Invalid email address')
+    .optional()
+    .or(z.literal(''))
+    .default(''),
+  phone: z
+    .string()
+    .optional()
+    .or(z.literal(''))
+    .default(''),
   nic: z
     .string()
     .min(1, 'NIC is required / ජා.හැ.ප. අංකය අවශ්‍යයි')
@@ -48,6 +59,10 @@ export const settingsSchema = z.object({
   telephone: z.string().max(20).optional().default(''),
   email: z.string().email('Invalid email').optional().or(z.literal('')).default(''),
   theme_color: z.string().regex(/^#[0-9A-Fa-f]{6}$/, 'Invalid color format').default('#CC0000'),
+  resend_api_key: z.string().optional().default(''),
+  twilio_sid: z.string().optional().default(''),
+  twilio_auth_token: z.string().optional().default(''),
+  twilio_from_number: z.string().optional().default(''),
 });
 
 export type SettingsFormData = z.infer<typeof settingsSchema>;
