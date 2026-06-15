@@ -6,7 +6,7 @@ import { Toaster } from 'react-hot-toast';
 import { AppRouter } from '@/router';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
-import { isSupabaseConfigured } from '@/services/supabaseClient';
+import { isSupabaseConfigured, supabase } from '@/services/supabaseClient';
 import { ErrorBoundary } from '@/components/common/ErrorBoundary';
 import { useAutoUpdate } from '@/hooks/useAutoUpdate';
 import './index.css';
@@ -45,10 +45,8 @@ async function bootstrap() {
   // Auto-refresh session every 30 minutes to prevent "invalid api key" errors
   setInterval(async () => {
     try {
-      const { supabase } = await import('@/services/supabaseClient');
-      const { data, error } = await supabase.auth.refreshSession();
-      if (error || !data.session) {
-        // Session refresh failed — clear user and let app redirect to login
+      const { data } = await supabase.auth.refreshSession();
+      if (!data.session) {
         useAuthStore.getState().setUser(null);
       }
     } catch { /* silent fail */ }
