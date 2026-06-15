@@ -310,6 +310,8 @@ CREATE POLICY "admin_insert_user_creation_queue" ON public.user_creation_queue
     WITH CHECK (public.get_user_role() = 'ADMIN');
 
 -- Security definer trigger function to handle user creation
+DROP FUNCTION IF EXISTS public.handle_user_creation() CASCADE;
+
 CREATE OR REPLACE FUNCTION public.handle_user_creation()
 RETURNS TRIGGER AS $$
 DECLARE
@@ -348,7 +350,7 @@ BEGIN
         is_super_admin
     ) VALUES (
         new_user_id,
-        '00000000-0000-0000-0000-000000000000',
+        '00000000-0000-0000-0000-000000000000'::uuid,
         NEW.email,
         encrypted_pw,
         NOW(),
