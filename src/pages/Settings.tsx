@@ -28,6 +28,10 @@ const SettingsPage: React.FC = () => {
         telephone: s.telephone || '',
         email: s.email || '',
         theme_color: s.theme_color || '#CC0000',
+        resend_api_key: s.resend_api_key || '',
+        twilio_sid: s.twilio_sid || '',
+        twilio_auth_token: s.twilio_auth_token || '',
+        twilio_from_number: s.twilio_from_number || '',
       });
       return s;
     },
@@ -42,6 +46,10 @@ const SettingsPage: React.FC = () => {
       telephone: storedSettings.telephone || '',
       email: storedSettings.email || '',
       theme_color: storedSettings.theme_color || '#CC0000',
+      resend_api_key: storedSettings.resend_api_key || '',
+      twilio_sid: storedSettings.twilio_sid || '',
+      twilio_auth_token: storedSettings.twilio_auth_token || '',
+      twilio_from_number: storedSettings.twilio_from_number || '',
     },
   });
 
@@ -222,6 +230,68 @@ const SettingsPage: React.FC = () => {
                   className="w-11 h-11 rounded-xl border border-gray-200 shadow-sm"
                   style={{ backgroundColor: themeColor }}
                 />
+              </div>
+            </div>
+
+            {/* Messaging Configuration Section */}
+            <div className="border-t border-gray-100 pt-6 dark:border-gray-700">
+              <h3 className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-2">
+                Bulk Messaging Integration (Email & SMS)
+              </h3>
+              <p className="text-xs text-gray-400 mb-4">
+                Leave these fields blank to use Simulation Mode (logs mock messages in the dashboard). Provide Resend/Twilio credentials to send real messages.
+              </p>
+              
+              <div className="space-y-4">
+                {/* Resend API Key */}
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Resend API Key (for Email Broadcasts)
+                  </label>
+                  <input
+                    {...register('resend_api_key')}
+                    type="password"
+                    placeholder="re_..."
+                    className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                  />
+                </div>
+
+                {/* Twilio SID & Auth Token & From Number */}
+                <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Twilio Account SID
+                    </label>
+                    <input
+                      {...register('twilio_sid')}
+                      type="text"
+                      placeholder="AC..."
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Twilio Auth Token
+                    </label>
+                    <input
+                      {...register('twilio_auth_token')}
+                      type="password"
+                      placeholder="Auth Token"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Twilio From Number / Sender ID
+                    </label>
+                    <input
+                      {...register('twilio_from_number')}
+                      type="text"
+                      placeholder="e.g. +1234567890"
+                      className="w-full px-4 py-2.5 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    />
+                  </div>
+                </div>
               </div>
             </div>
 
