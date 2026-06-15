@@ -15,6 +15,7 @@ import DivisionsPage from '@/pages/Divisions';
 import ReportsPage from '@/pages/Reports';
 import SettingsPage from '@/pages/Settings';
 import UserManagementPage from '@/pages/UserManagement';
+import BroadcastPage from '@/pages/Broadcast';
 
 export const AppRouter: React.FC = () => (
   <Routes>
@@ -35,6 +36,7 @@ export const AppRouter: React.FC = () => (
           <Route path="/members/add" element={<AddMemberPage />} />
           <Route path="/members/:id/edit" element={<EditMemberPage />} />
           <Route path="/members/import" element={<ImportPage />} />
+          <Route path="/broadcast" element={<BroadcastPage />} />
           <Route path="/settings" element={<SettingsPage />} />
           <Route path="/users" element={<UserManagementPage />} />
         </Route>
