@@ -552,6 +552,7 @@ const BroadcastPage: React.FC = () => {
       <AnimatePresence>
         {isSending && (
           <motion.div
+            key="broadcast-progress-modal"
             initial={{ opacity: 0 }}
             animate={{ opacity: 1 }}
             exit={{ opacity: 0 }}
