@@ -39,9 +39,142 @@ const MembersPage: React.FC = () => {
   const settings = useSettingsStore((s) => s.settings);
 
   const handlePrintMember = () => {
-    document.body.classList.add('printing-member-profile');
-    window.print();
-    document.body.classList.remove('printing-member-profile');
+    if (!viewingMember) return;
+    
+    const printWindow = window.open('', '_blank');
+    if (!printWindow) return;
+
+    const societyName = settings.society_name || 'Cooperative Society';
+
+    printWindow.document.write(`
+      <!DOCTYPE html>
+      <html lang="si">
+      <head>
+        <meta charset="UTF-8" />
+        <title>Member Profile - ${viewingMember.name}</title>
+        <style>
+          @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap');
+          body {
+            font-family: "Noto Sans Sinhala", "Noto Sans", "Nirmala UI", Arial, sans-serif;
+            font-size: 12px;
+            color: #333;
+            margin: 40px;
+            background: #fff;
+          }
+          .header {
+            text-align: center;
+            border-bottom: 3px solid #CC0000;
+            padding-bottom: 15px;
+            margin-bottom: 30px;
+          }
+          .header h1 { color: #CC0000; font-size: 22px; margin: 0 0 5px; }
+          .header h2 { font-size: 15px; color: #666; margin: 0; }
+          .profile-title {
+            font-size: 18px;
+            font-weight: bold;
+            border-bottom: 1px solid #ddd;
+            padding-bottom: 8px;
+            margin-bottom: 20px;
+            color: #CC0000;
+          }
+          .grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 20px;
+          }
+          .col-span-2 {
+            grid-column: span 2;
+          }
+          .field-label {
+            font-size: 10px;
+            text-transform: uppercase;
+            color: #888;
+            font-weight: 600;
+          }
+          .field-value {
+            font-size: 13px;
+            color: #222;
+            margin-top: 4px;
+            font-weight: 500;
+          }
+          .field-value.amount {
+            color: #1a7a1a;
+            font-weight: 700;
+            font-size: 15px;
+          }
+          .footer {
+            text-align: center;
+            margin-top: 50px;
+            font-size: 9px;
+            color: #999;
+            border-top: 1px solid #eee;
+            padding-top: 10px;
+          }
+          @media print {
+            body { margin: 20mm; }
+          }
+        </style>
+      </head>
+      <body>
+        <div class="header">
+          <h1>${societyName}</h1>
+          <h2>Official Member Profile Record</h2>
+        </div>
+        
+        <div class="profile-title">Member: ${viewingMember.name}</div>
+        
+        <div class="grid">
+          <div>
+            <div class="field-label">Member Number / සාමාජික අංකය</div>
+            <div class="field-value" style="font-family: monospace; font-weight: bold;">${viewingMember.member_no || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">NIC Number / ජා.හැ.ප. අංකය</div>
+            <div class="field-value" style="font-family: monospace;">${viewingMember.nic || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">Joined Date / බැඳුණු දිනය</div>
+            <div class="field-value">${formatDate(viewingMember.joined_date)}</div>
+          </div>
+          <div>
+            <div class="field-label">Share Amount / කොටස් මුදල</div>
+            <div class="field-value amount">Rs. ${(viewingMember.share_amount || 0).toLocaleString('en-LK')}</div>
+          </div>
+          <div>
+            <div class="field-label">Electoral Division / ආසනය</div>
+            <div class="field-value">${viewingMember.electoral_division?.division_name || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">Category / කාණ්ඩය</div>
+            <div class="field-value">${viewingMember.category?.category_name || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">Phone / දුරකථනය</div>
+            <div class="field-value" style="font-family: monospace;">${viewingMember.phone || '—'}</div>
+          </div>
+          <div>
+            <div class="field-label">Email / විද්‍යුත් තැපෑල</div>
+            <div class="field-value">${viewingMember.email || '—'}</div>
+          </div>
+          <div class="col-span-2">
+            <div class="field-label">Address / ලිපිනය</div>
+            <div class="field-value" style="line-height: 1.5;">${viewingMember.address || '—'}</div>
+          </div>
+        </div>
+
+        <div class="footer">
+          Generated on ${new Date().toLocaleString('en-LK')} — ${societyName}
+        </div>
+      </body>
+      </html>
+    `);
+
+    printWindow.document.close();
+    printWindow.focus();
+    setTimeout(() => {
+      printWindow.print();
+      printWindow.close();
+    }, 500);
   };
 
   const handleExport = async (format: 'pdf' | 'excel' | 'csv') => {
@@ -222,7 +355,7 @@ const MembersPage: React.FC = () => {
         </div>
         <div className="flex gap-2 flex-wrap no-print">
           <button
-            onClick={() => window.print()}
+            onClick={() => handleExport('pdf')}
             className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50
               px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 dark:border-gray-600 dark:text-gray-300"
             title="Print List / ලැයිස්තුව මුද්‍රණය"
