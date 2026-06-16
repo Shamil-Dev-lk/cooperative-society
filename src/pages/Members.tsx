@@ -3,6 +3,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import {
   Search, Filter, Plus, Pencil, Eye, Download, ChevronLeft, ChevronRight,
   SlidersHorizontal, X, Trash2, CheckSquare, Square, Printer, FileText,
@@ -13,6 +14,7 @@ import { divisionService } from '@/services/divisionService';
 import { categoryService } from '@/services/categoryService';
 import { TableRowSkeleton } from '@/components/common/Skeleton';
 import { formatDate, formatNumber } from '@/utils/dateUtils';
+import { exportToPDF, exportToExcel, exportToCSV } from '@/utils/exportUtils';
 import type { MemberFilters, Member } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -33,11 +35,40 @@ const MembersPage: React.FC = () => {
   const [searchInput, setSearchInput] = useState('');
   const [showFilters, setShowFilters] = useState(false);
   const [viewingMember, setViewingMember] = useState<Member | null>(null);
+  const [showExportDropdown, setShowExportDropdown] = useState(false);
+  const settings = useSettingsStore((s) => s.settings);
 
   const handlePrintMember = () => {
     document.body.classList.add('printing-member-profile');
     window.print();
     document.body.classList.remove('printing-member-profile');
+  };
+
+  const handleExport = async (format: 'pdf' | 'excel' | 'csv') => {
+    setShowExportDropdown(false);
+    toast.loading(`Preparing ${format.toUpperCase()} export...`);
+    try {
+      const allMembers = await memberService.getAllForReport(filters);
+      toast.dismiss();
+      if (allMembers.length === 0) {
+        toast.error('No members found to export');
+        return;
+      }
+      const title = 'Members List';
+      if (format === 'pdf') {
+        exportToPDF(allMembers, { title, settings });
+        toast.success('PDF opened in new tab');
+      } else if (format === 'excel') {
+        exportToExcel(allMembers, title);
+        toast.success('Excel file downloaded');
+      } else {
+        exportToCSV(allMembers, title);
+        toast.success('CSV file downloaded');
+      }
+    } catch (err) {
+      toast.dismiss();
+      toast.error('Export failed');
+    }
   };
 
   const { data, isLoading } = useQuery({
@@ -198,6 +229,43 @@ const MembersPage: React.FC = () => {
           >
             <Printer size={16} /> Print List / මුද්‍රණය
           </button>
+          <div className="relative inline-block text-left no-print">
+            <button
+              onClick={() => setShowExportDropdown(!showExportDropdown)}
+              className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50
+                px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 dark:border-gray-600 dark:text-gray-300"
+              title="Export List / ලැයිස්තුව බාගත කරන්න"
+            >
+              <Download size={16} /> Export / බාගන්න
+            </button>
+            {showExportDropdown && (
+              <>
+                <div className="fixed inset-0 z-10" onClick={() => setShowExportDropdown(false)} />
+                <div className="absolute right-0 mt-2 w-48 rounded-xl bg-white dark:bg-surface-dark border border-gray-150 dark:border-gray-700 shadow-xl z-20 overflow-hidden">
+                  <div className="py-1">
+                    <button
+                      onClick={() => handleExport('pdf')}
+                      className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-left gap-2 font-medium"
+                    >
+                      <FileText size={15} className="text-red-500" /> Export to PDF
+                    </button>
+                    <button
+                      onClick={() => handleExport('excel')}
+                      className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-left gap-2 font-medium"
+                    >
+                      <FileText size={15} className="text-emerald-500" /> Export to Excel
+                    </button>
+                    <button
+                      onClick={() => handleExport('csv')}
+                      className="flex items-center w-full px-4 py-2.5 text-sm text-gray-700 dark:text-gray-300 hover:bg-gray-50 dark:hover:bg-gray-800 text-left gap-2 font-medium"
+                    >
+                      <FileText size={15} className="text-blue-500" /> Export to CSV
+                    </button>
+                  </div>
+                </div>
+              </>
+            )}
+          </div>
           {isAdmin && (
             <button
               onClick={handleDeleteAll}
