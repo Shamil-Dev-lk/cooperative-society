@@ -156,14 +156,63 @@
 
 /* Print styles */
 @media print {
-  .no-print { display: none !important; }
-  body { font-size: 11px; }
-  @page { margin: 15mm; }
-
-  body.printing-member-profile #root {
+  .no-print,
+  aside,
+  header,
+  nav,
+  button,
+  .search-filter-bar,
+  .pagination,
+  .bulk-actions {
     display: none !important;
   }
+
+  body {
+    font-size: 11px;
+    background-color: white !important;
+    color: black !important;
+  }
+  
+  @page {
+    margin: 15mm;
+  }
+
+  /* Reset layout margins for printing */
+  body, #root, main, .flex-1 {
+    margin: 0 !important;
+    padding: 0 !important;
+    width: 100% !important;
+    max-width: 100% !important;
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  main {
+    margin-left: 0 !important;
+    padding: 10px !important;
+  }
+
+  /* Override inline margin-left on print */
+  div[style*="margin-left"] {
+    margin-left: 0 !important;
+  }
+
+  /* Clean up tables for print */
+  table {
+    border-collapse: collapse !important;
+    width: 100% !important;
+  }
+  th, td {
+    border: 1px solid #ddd !important;
+    padding: 6px 8px !important;
+  }
+
+  /* Specific rule for printing member profile modal */
+  body.printing-member-profile {
+    visibility: hidden;
+  }
   body.printing-member-profile .printable-profile {
+    visibility: visible !important;
     display: block !important;
     position: absolute;
     left: 0;
@@ -175,5 +224,8 @@
     color: black !important;
     border: none !important;
     box-shadow: none !important;
+  }
+  body.printing-member-profile .printable-profile * {
+    visibility: visible !important;
   }
 }
