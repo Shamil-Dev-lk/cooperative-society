@@ -288,7 +288,7 @@ const ImportMembersPage: React.FC = () => {
               <div className="mb-5 p-4 bg-gray-50 dark:bg-gray-800 rounded-xl">
                 <p className="text-xs font-semibold text-gray-600 dark:text-gray-300 mb-2">Required columns in your file:</p>
                 <div className="flex flex-wrap gap-2">
-                  {['member_no', 'name', 'address', 'nic', 'joined_date', 'share_amount'].map((col) => (
+                  {['member_no', 'name', 'address', 'nic', 'joined_date', 'share_amount', 'email', 'phone'].map((col) => (
                     <span key={col} className={`px-2 py-0.5 rounded text-xs font-mono
                       ${ ['member_no','name'].includes(col)
                         ? 'bg-red-100 text-red-700 font-bold'
@@ -331,8 +331,8 @@ const ImportMembersPage: React.FC = () => {
                     <p className="text-sm font-medium text-blue-800">File ready: <strong>{file.name}</strong></p>
                     <p className="text-xs text-blue-600 mt-1">
                       {file.name.endsWith('.csv')
-                        ? 'CSV: Auto-detect headers, skip empty rows'
-                        : 'Excel: Rows 1-5 skipped, Row 6 = headers, Data from Row 7'}
+                        ? 'CSV: Automatically detects headers and parses data / CSV: තීරු ශීර්ෂ ස්වයංක්‍රීයව හඳුනාගෙන දත්ත ලබා ගනී'
+                        : 'Excel: Automatically detects header row (scans first 15 rows) and parses data / Excel: තීරු ශීර්ෂ පේළිය ස්වයංක්‍රීයව හඳුනාගෙන (පළමු පේළි 15 පරිලෝකනය කරයි) දත්ත ලබා ගනී'}
                     </p>
                   </div>
                 </div>
