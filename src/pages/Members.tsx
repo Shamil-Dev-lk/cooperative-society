@@ -189,7 +189,15 @@ const MembersPage: React.FC = () => {
             සාමාජිකයන් — {formatNumber(data?.count ?? 0)} total records
           </p>
         </div>
-        <div className="flex gap-2 flex-wrap">
+        <div className="flex gap-2 flex-wrap no-print">
+          <button
+            onClick={() => window.print()}
+            className="flex items-center gap-2 border border-gray-300 text-gray-700 hover:bg-gray-50
+              px-4 py-2 rounded-xl text-sm font-medium transition-all duration-200 dark:border-gray-600 dark:text-gray-300"
+            title="Print List / ලැයිස්තුව මුද්‍රණය"
+          >
+            <Printer size={16} /> Print List / මුද්‍රණය
+          </button>
           {isAdmin && (
             <button
               onClick={handleDeleteAll}
@@ -222,7 +230,7 @@ const MembersPage: React.FC = () => {
       </div>
 
       {/* Search & Filter Bar */}
-      <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card p-4">
+      <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card p-4 no-print">
         <div className="flex gap-3 flex-wrap">
           <div className="flex-1 min-w-60 flex gap-2">
             <div className="flex-1 relative">
@@ -429,7 +437,7 @@ const MembersPage: React.FC = () => {
             <thead className="bg-gray-50 dark:bg-gray-800">
               <tr>
                 {isAdmin && (
-                  <th className="px-4 py-3 w-10">
+                  <th className="px-4 py-3 w-10 no-print">
                     <button onClick={toggleSelectAll} className="text-gray-400 hover:text-primary transition-colors">
                       {selectedIds.size > 0 && selectedIds.size === (data?.data || []).length
                         ? <CheckSquare size={17} className="text-primary" />
@@ -438,7 +446,7 @@ const MembersPage: React.FC = () => {
                   </th>
                 )}
                 {['Member No', 'Name / නම', 'NIC', 'Contact', 'Address', 'Division', 'Category', 'Joined Date', 'Share Amount', 'Actions'].map((h) => (
-                  <th key={h} className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap">
+                  <th key={h} className={`px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase tracking-wide whitespace-nowrap ${h === 'Actions' ? 'no-print' : ''}`}>
                     {h}
                   </th>
                 ))}
@@ -466,7 +474,7 @@ const MembersPage: React.FC = () => {
                       }`}
                     >
                       {isAdmin && (
-                        <td className="px-4 py-3 w-10">
+                        <td className="px-4 py-3 w-10 no-print">
                           <button
                             onClick={() => toggleSelect(m.id)}
                             className="text-gray-400 hover:text-primary transition-colors"
@@ -500,7 +508,7 @@ const MembersPage: React.FC = () => {
                       <td className="px-4 py-3 text-emerald-600 font-medium">
                         Rs. {formatNumber(m.share_amount || 0)}
                       </td>
-                      <td className="px-4 py-3">
+                      <td className="px-4 py-3 no-print">
                         <div className="flex items-center gap-1">
                           <button
                             onClick={() => setViewingMember(m)}
@@ -539,7 +547,7 @@ const MembersPage: React.FC = () => {
 
         {/* Pagination */}
         {data && data.totalPages > 1 && (
-          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between">
+          <div className="px-4 py-3 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between no-print">
             <p className="text-xs text-gray-500">
               Showing {(page - 1) * PAGE_SIZE + 1}–{Math.min(page * PAGE_SIZE, data.count)} of {formatNumber(data.count)} members
             </p>
