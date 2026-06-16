@@ -167,10 +167,20 @@
     display: none !important;
   }
 
+  /* Reset colors for printing to prevent white-on-white text in dark mode */
+  *, ::before, ::after {
+    color: black !important;
+    text-shadow: none !important;
+    box-shadow: none !important;
+  }
+
+  body, #root, #root > div, #root > div > div, main, .card, table, tr, td, th {
+    background-color: white !important;
+    background-image: none !important;
+  }
+
   body {
     font-size: 11px;
-    background-color: white !important;
-    color: black !important;
   }
   
   @page {
