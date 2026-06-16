@@ -178,13 +178,26 @@
   }
 
   /* Reset layout margins for printing */
-  body, #root, main, .flex-1 {
+  body, #root, #root > div, #root > div > div, main {
     margin: 0 !important;
     padding: 0 !important;
     width: 100% !important;
     max-width: 100% !important;
     height: auto !important;
+    min-height: auto !important;
     overflow: visible !important;
+    display: block !important;
+  }
+
+  .flex-1 {
+    height: auto !important;
+    overflow: visible !important;
+  }
+
+  /* Ensure scrollable / hidden containers expand fully on print */
+  .overflow-hidden, .overflow-x-auto, .overflow-y-auto {
+    overflow: visible !important;
+    height: auto !important;
   }
 
   main {
