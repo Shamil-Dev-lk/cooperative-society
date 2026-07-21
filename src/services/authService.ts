@@ -41,9 +41,51 @@ export const authService = {
   },
 
   async getAllUsers(): Promise<SystemUser[]> {
-    const { data, error } = await supabase.rpc('get_all_users');
-    if (error) throw error;
-    return data || [];
+    try {
+      const { data, error } = await supabase.rpc('get_all_users');
+      if (!error && data && data.length > 0) {
+        return data;
+      }
+    } catch {
+      // Fall through to query fallbacks
+    }
+
+    // Fallback: Query user_creation_queue + current user session
+    const list: SystemUser[] = [];
+
+    // Current logged in user session
+    const { data: { session } } = await supabase.auth.getSession();
+    if (session?.user) {
+      list.push({
+        id: session.user.id,
+        email: session.user.email!,
+        role: (session.user.user_metadata?.role as UserRole) || 'ADMIN',
+        created_at: session.user.created_at || new Date().toISOString(),
+        last_sign_in_at: session.user.last_sign_in_at || new Date().toISOString(),
+      });
+    }
+
+    // Fetch queued / created users from user_creation_queue
+    const { data: queueData } = await supabase
+      .from('user_creation_queue')
+      .select('*')
+      .order('created_at', { ascending: false });
+
+    if (queueData && queueData.length > 0) {
+      queueData.forEach((q) => {
+        if (!list.some((u) => u.email.toLowerCase() === q.email.toLowerCase())) {
+          list.push({
+            id: q.id,
+            email: q.email,
+            role: (q.role as UserRole) || 'OPERATOR',
+            created_at: q.created_at || new Date().toISOString(),
+            last_sign_in_at: null,
+          });
+        }
+      });
+    }
+
+    return list;
   },
 
   async updateUserRole(userId: string, role: UserRole): Promise<void> {
