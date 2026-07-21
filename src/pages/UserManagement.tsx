@@ -3,12 +3,17 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, Shield, User, Eye, EyeOff, CheckCircle, Users, KeyRound,
-  Trash2, RefreshCw, X, ShieldAlert, Calendar, Clock
+  Trash2, RefreshCw, X, ShieldAlert, Calendar, Clock, Download, FileText,
+  FileSpreadsheet, Printer, Copy
 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { authService, SystemUser } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
+import { useSettingsStore } from '@/stores/settingsStore';
 import { formatDate } from '@/utils/dateUtils';
+import {
+  exportUsersToPDF, exportUsersToExcel, exportUsersToCSV, downloadAccountSlip
+} from '@/utils/exportUtils';
 import type { UserRole } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -22,8 +27,10 @@ interface CreateUserForm {
 const UserManagementPage: React.FC = () => {
   const queryClient = useQueryClient();
   const currentUser = useAuthStore((s) => s.user);
+  const settings = useSettingsStore((s) => s.settings);
 
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
+  const [showExportMenu, setShowExportMenu] = useState(false);
   const [form, setForm] = useState<CreateUserForm>({
     email: '',
     password: '',
@@ -33,7 +40,9 @@ const UserManagementPage: React.FC = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirm, setShowConfirm] = useState(false);
   const [isCreating, setIsCreating] = useState(false);
-  const [success, setSuccess] = useState<string | null>(null);
+
+  // Success state with created user details for slip download
+  const [createdAccount, setCreatedAccount] = useState<{ email: string; role: string; password?: string } | null>(null);
 
   // Password reset modal state
   const [resetUser, setResetUser] = useState<SystemUser | null>(null);
@@ -67,7 +76,7 @@ const UserManagementPage: React.FC = () => {
 
   const handleChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     setForm((f) => ({ ...f, [e.target.name]: e.target.value }));
-    setSuccess(null);
+    setCreatedAccount(null);
   };
 
   const validate = (): string | null => {
@@ -97,10 +106,18 @@ const UserManagementPage: React.FC = () => {
 
       if (error) throw error;
 
-      setSuccess(form.email);
+      setCreatedAccount({
+        email: form.email,
+        role: form.role,
+        password: form.password,
+      });
+
+      // Also generate login slip download automatically!
+      downloadAccountSlip(form.email, form.role, form.password, settings?.society_name);
+
       setForm({ email: '', password: '', confirmPassword: '', role: 'OPERATOR' });
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
-      toast.success(`User "${form.email}" creation requested successfully!`);
+      toast.success(`User "${form.email}" account created! Login slip opened for download.`);
     } catch (err: unknown) {
       const message = err instanceof Error ? err.message : 'Failed to create user';
       toast.error(message);
@@ -121,6 +138,10 @@ const UserManagementPage: React.FC = () => {
     try {
       await authService.resetUserPassword(resetUser.id, newPassword);
       toast.success(`Password reset for ${resetUser.email}`);
+      
+      // Auto download updated login slip for reset password
+      downloadAccountSlip(resetUser.email, resetUser.role, newPassword, settings?.society_name);
+
       setResetUser(null);
       setNewPassword('');
     } catch (err: unknown) {
@@ -147,6 +168,33 @@ const UserManagementPage: React.FC = () => {
     }
   };
 
+  const handleExportPDF = () => {
+    if (!users || users.length === 0) {
+      toast.error('No users available to export');
+      return;
+    }
+    exportUsersToPDF(users, settings?.society_name);
+    setShowExportMenu(false);
+  };
+
+  const handleExportExcel = () => {
+    if (!users || users.length === 0) {
+      toast.error('No users available to export');
+      return;
+    }
+    exportUsersToExcel(users, settings?.society_name);
+    setShowExportMenu(false);
+  };
+
+  const handleExportCSV = () => {
+    if (!users || users.length === 0) {
+      toast.error('No users available to export');
+      return;
+    }
+    exportUsersToCSV(users);
+    setShowExportMenu(false);
+  };
+
   return (
     <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
       {/* Header */}
@@ -154,32 +202,67 @@ const UserManagementPage: React.FC = () => {
         <div>
           <h1 className="text-2xl font-bold text-text dark:text-text-dark">User Account Management</h1>
           <p className="text-sm text-gray-400 mt-1">
-            පරිශීලක ගිණුම් කළමනාකරණය — Manage staff user accounts and permissions
+            පරිශීලක ගිණුම් කළමනාකරණය — Manage staff user accounts, permissions & login details
           </p>
         </div>
 
-        {/* Tab buttons */}
-        <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-2xl w-fit">
-          <button
-            onClick={() => setActiveTab('list')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'list'
-                ? 'bg-white dark:bg-surface-dark text-primary shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            <Users size={16} /> User Accounts ({(users || []).length})
-          </button>
-          <button
-            onClick={() => setActiveTab('create')}
-            className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
-              activeTab === 'create'
-                ? 'bg-white dark:bg-surface-dark text-primary shadow-sm'
-                : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
-            }`}
-          >
-            <UserPlus size={16} /> Add New User
-          </button>
+        {/* Action Controls & Tab buttons */}
+        <div className="flex items-center gap-3">
+          {/* Export Dropdown */}
+          <div className="relative">
+            <button
+              onClick={() => setShowExportMenu((v) => !v)}
+              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm"
+            >
+              <Download size={16} /> Export / බාගන්න
+            </button>
+
+            {showExportMenu && (
+              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-2xl shadow-xl py-2 z-30">
+                <button
+                  onClick={handleExportPDF}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                >
+                  <FileText size={15} className="text-red-500" /> Export User List (PDF)
+                </button>
+                <button
+                  onClick={handleExportExcel}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                >
+                  <FileSpreadsheet size={15} className="text-emerald-500" /> Export User List (Excel)
+                </button>
+                <button
+                  onClick={handleExportCSV}
+                  className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
+                >
+                  <Download size={15} className="text-blue-500" /> Export User List (CSV)
+                </button>
+              </div>
+            )}
+          </div>
+
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl">
+            <button
+              onClick={() => setActiveTab('list')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'list'
+                  ? 'bg-white dark:bg-surface-dark text-primary shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <Users size={16} /> User Accounts ({(users || []).length})
+            </button>
+            <button
+              onClick={() => setActiveTab('create')}
+              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+                activeTab === 'create'
+                  ? 'bg-white dark:bg-surface-dark text-primary shadow-sm'
+                  : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+              }`}
+            >
+              <UserPlus size={16} /> Add New User
+            </button>
+          </div>
         </div>
       </div>
 
@@ -189,7 +272,7 @@ const UserManagementPage: React.FC = () => {
         <div className="text-sm text-blue-700 dark:text-blue-300">
           <p className="font-semibold mb-0.5">Admin Security Control</p>
           <p className="text-xs leading-relaxed">
-            Only administrators have permission to manage accounts. <strong>OPERATOR</strong> users can view and edit data, while <strong>ADMIN</strong> users have complete access including system settings, backups, and user security.
+            Only administrators have permission to manage user accounts and download credentials. <strong>OPERATOR</strong> users can view and edit data, while <strong>ADMIN</strong> users have complete access including system settings, backups, and user security.
           </p>
         </div>
       </div>
@@ -199,14 +282,22 @@ const UserManagementPage: React.FC = () => {
         <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card overflow-hidden">
           <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
             <h2 className="font-bold text-text dark:text-text-dark text-base flex items-center gap-2">
-              <Users size={18} className="text-primary" /> Active System Accounts
+              <Users size={18} className="text-primary" /> Active System Accounts List
             </h2>
-            <button
-              onClick={() => refetch()}
-              className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-primary transition-colors border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg"
-            >
-              <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} /> Refresh List
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={handleExportPDF}
+                className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 px-3 py-1.5 rounded-lg transition-colors font-semibold"
+              >
+                <Printer size={14} /> Print / Save PDF
+              </button>
+              <button
+                onClick={() => refetch()}
+                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-primary transition-colors border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg"
+              >
+                <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} /> Refresh List
+              </button>
+            </div>
           </div>
 
           <div className="overflow-x-auto">
@@ -224,19 +315,24 @@ const UserManagementPage: React.FC = () => {
                 {isLoading ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                      Loading users...
+                      Loading user accounts list...
                     </td>
                   </tr>
                 ) : isError ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-amber-600">
-                      Unable to load user list. Please make sure database RPC functions are installed.
+                      <div className="max-w-md mx-auto space-y-2">
+                        <p className="font-semibold text-sm">Database Function Required</p>
+                        <p className="text-xs text-gray-500">
+                          Please run the user management RPC script in your Supabase SQL Editor to enable full user listing.
+                        </p>
+                      </div>
                     </td>
                   </tr>
                 ) : (users || []).length === 0 ? (
                   <tr>
                     <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                      No users found.
+                      No user accounts found.
                     </td>
                   </tr>
                 ) : (
@@ -283,6 +379,15 @@ const UserManagementPage: React.FC = () => {
                       </td>
                       <td className="px-4 py-3.5 text-right">
                         <div className="flex items-center justify-end gap-2">
+                          {/* Download Login Slip */}
+                          <button
+                            onClick={() => downloadAccountSlip(u.email, u.role, undefined, settings?.society_name)}
+                            title="Download Login Slip / Slip එක බාගන්න"
+                            className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg transition-colors font-medium"
+                          >
+                            <FileText size={14} /> Slip
+                          </button>
+
                           {/* Role Toggle */}
                           <button
                             onClick={() =>
@@ -332,16 +437,37 @@ const UserManagementPage: React.FC = () => {
       {/* TAB 2: CREATE USER FORM */}
       {activeTab === 'create' && (
         <div className="max-w-lg mx-auto space-y-6">
-          {success && (
+          {createdAccount && (
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="flex items-center gap-3 bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-4"
+              className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-5 space-y-3"
             >
-              <CheckCircle size={18} className="text-emerald-500 flex-shrink-0" />
-              <div className="text-sm text-emerald-700 dark:text-emerald-300">
-                <p className="font-semibold">User created successfully!</p>
-                <p className="text-xs mt-0.5"><strong>{success}</strong> can now log in to the system.</p>
+              <div className="flex items-center gap-3">
+                <CheckCircle size={20} className="text-emerald-500 flex-shrink-0" />
+                <div>
+                  <p className="font-bold text-emerald-800 dark:text-emerald-200 text-base">User Account Created Successfully!</p>
+                  <p className="text-xs text-emerald-600 dark:text-emerald-300">
+                    <strong>{createdAccount.email}</strong> is now registered as <strong>{createdAccount.role}</strong>.
+                  </p>
+                </div>
+              </div>
+
+              <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between">
+                <span className="text-xs text-emerald-700 font-medium">Download Account Login Credentials Slip:</span>
+                <button
+                  onClick={() =>
+                    downloadAccountSlip(
+                      createdAccount.email,
+                      createdAccount.role,
+                      createdAccount.password,
+                      settings?.society_name
+                    )
+                  }
+                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all"
+                >
+                  <Download size={14} /> Download Login Slip (PDF)
+                </button>
               </div>
             </motion.div>
           )}
@@ -356,8 +482,8 @@ const UserManagementPage: React.FC = () => {
                 <UserPlus size={20} className="text-primary" />
               </div>
               <div>
-                <h2 className="font-semibold text-text dark:text-text-dark">Create New User</h2>
-                <p className="text-xs text-gray-400">නව පරිශීලකයෙකු සාදන්න</p>
+                <h2 className="font-semibold text-text dark:text-text-dark">Create New User Account</h2>
+                <p className="text-xs text-gray-400">නව පරිශීලකයෙකු සාදා පිවිසුම් පත්‍රිකාව බාගන්න</p>
               </div>
             </div>
 
@@ -499,7 +625,7 @@ const UserManagementPage: React.FC = () => {
                   ) : (
                     <UserPlus size={16} />
                   )}
-                  {isCreating ? 'Creating User...' : 'Create User Account / ගිණුම සාදන්න'}
+                  {isCreating ? 'Creating User...' : 'Create Account & Download Slip'}
                 </button>
               </div>
             </form>
@@ -576,7 +702,7 @@ const UserManagementPage: React.FC = () => {
                     disabled={isResetting}
                     className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors disabled:opacity-60"
                   >
-                    {isResetting ? 'Resetting...' : 'Save New Password'}
+                    {isResetting ? 'Resetting...' : 'Save Password & Download Slip'}
                   </button>
                 </div>
               </form>
