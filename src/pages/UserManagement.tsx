@@ -263,6 +263,59 @@ const UserManagementPage: React.FC = () => {
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{operatorCount}</h3>
           </div>
         </div>
+      {/* Info Banner & SQL Setup Guide */}
+      <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
+        <div className="flex items-start gap-3">
+          <Shield className="text-amber-600 dark:text-amber-400 flex-shrink-0 mt-0.5" size={20} />
+          <div className="text-xs text-amber-800 dark:text-amber-200">
+            <p className="font-bold text-sm">Want to load ALL your old created accounts from Supabase Auth?</p>
+            <p className="mt-0.5 leading-relaxed text-amber-700 dark:text-amber-300">
+              Run this 1-click SQL script in your <strong>Supabase Dashboard &gt; SQL Editor</strong> to grant access to all past &amp; future staff accounts.
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={() => {
+            const sql = `-- Run this in Supabase Dashboard > SQL Editor to load all old accounts
+CREATE OR REPLACE FUNCTION public.get_all_users()
+RETURNS TABLE (id UUID, email TEXT, role TEXT, created_at TIMESTAMPTZ, last_sign_in_at TIMESTAMPTZ) AS $$
+BEGIN
+    RETURN QUERY SELECT u.id, u.email::text, COALESCE(u.raw_user_meta_data->>'role', 'OPERATOR')::text AS role, u.created_at, u.last_sign_in_at FROM auth.users u ORDER BY u.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.update_user_role(target_user_id UUID, new_role TEXT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE auth.users SET raw_user_meta_data = jsonb_set(COALESCE(raw_user_meta_data, '{}'::jsonb), '{role}', to_jsonb(new_role)), updated_at = NOW() WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.reset_user_password(target_user_id UUID, new_password TEXT)
+RETURNS VOID AS $$
+BEGIN
+    UPDATE auth.users SET encrypted_password = crypt(new_password, gen_salt('bf')), updated_at = NOW() WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+CREATE OR REPLACE FUNCTION public.delete_user(target_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+GRANT EXECUTE ON FUNCTION public.get_all_users() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_user_role(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reset_user_password(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_user(UUID) TO authenticated;`;
+            navigator.clipboard.writeText(sql);
+            toast.success('SQL Script copied to clipboard! Paste in Supabase SQL Editor.');
+          }}
+          className="flex items-center gap-1.5 bg-amber-600 hover:bg-amber-700 text-white font-bold text-xs px-4 py-2 rounded-xl transition-all shadow-sm flex-shrink-0"
+        >
+          <Copy size={14} /> Copy SQL Script
+        </button>
       </div>
 
       {/* TAB 1: ALL ACCOUNTS LIST */}
