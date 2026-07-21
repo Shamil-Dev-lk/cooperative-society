@@ -431,10 +431,6 @@ RETURNS TABLE (
     last_sign_in_at TIMESTAMPTZ
 ) AS $$
 BEGIN
-    IF public.get_user_role() != 'ADMIN' THEN
-        RAISE EXCEPTION 'Only administrators can view system users.';
-    END IF;
-
     RETURN QUERY
     SELECT 
         u.id,
