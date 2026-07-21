@@ -3,17 +3,15 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, Shield, User, Eye, EyeOff, CheckCircle, Users, KeyRound,
-  Trash2, RefreshCw, X, ShieldAlert, Calendar, Clock, Download, FileText,
-  FileSpreadsheet, Printer, Copy
+  Trash2, RefreshCw, X, ShieldAlert, Calendar, Clock, FileText, Search,
+  Printer, UserCheck
 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { authService, SystemUser } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { useSettingsStore } from '@/stores/settingsStore';
 import { formatDate } from '@/utils/dateUtils';
-import {
-  exportUsersToPDF, exportUsersToExcel, exportUsersToCSV, downloadAccountSlip
-} from '@/utils/exportUtils';
+import { exportUsersToPDF, downloadAccountSlip } from '@/utils/exportUtils';
 import type { UserRole } from '@/types';
 import toast from 'react-hot-toast';
 
@@ -30,7 +28,7 @@ const UserManagementPage: React.FC = () => {
   const settings = useSettingsStore((s) => s.settings);
 
   const [activeTab, setActiveTab] = useState<'list' | 'create'>('list');
-  const [showExportMenu, setShowExportMenu] = useState(false);
+  const [searchTerm, setSearchTerm] = useState('');
   const [form, setForm] = useState<CreateUserForm>({
     email: '',
     password: '',
@@ -54,11 +52,11 @@ const UserManagementPage: React.FC = () => {
   const [deletingUser, setDeletingUser] = useState<SystemUser | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
 
-  // Query system users
+  // Query system users (with fallback for old created accounts)
   const { data: users, isLoading, isError, refetch } = useQuery({
     queryKey: ['system-users'],
     queryFn: () => authService.getAllUsers(),
-    staleTime: 10000,
+    staleTime: 5000,
   });
 
   // Role toggle mutation
@@ -112,14 +110,14 @@ const UserManagementPage: React.FC = () => {
         password: form.password,
       });
 
-      // Also generate login slip download automatically!
+      // Automatically generate PDF Login Slip download
       downloadAccountSlip(form.email, form.role, form.password, settings?.society_name);
 
       setForm({ email: '', password: '', confirmPassword: '', role: 'OPERATOR' });
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
-      toast.success(`User "${form.email}" account created! Login slip opened for download.`);
+      toast.success(`Account "${form.email}" created! PDF Login Slip generated.`);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to create user';
+      const message = err instanceof Error ? err.message : 'Failed to create user account';
       toast.error(message);
     } finally {
       setIsCreating(false);
@@ -139,7 +137,7 @@ const UserManagementPage: React.FC = () => {
       await authService.resetUserPassword(resetUser.id, newPassword);
       toast.success(`Password reset for ${resetUser.email}`);
       
-      // Auto download updated login slip for reset password
+      // Auto download updated login slip PDF
       downloadAccountSlip(resetUser.email, resetUser.role, newPassword, settings?.society_name);
 
       setResetUser(null);
@@ -157,238 +155,233 @@ const UserManagementPage: React.FC = () => {
     setIsDeleting(true);
     try {
       await authService.deleteUser(deletingUser.id);
-      toast.success(`User ${deletingUser.email} deleted`);
+      toast.success(`Account ${deletingUser.email} deleted`);
       queryClient.invalidateQueries({ queryKey: ['system-users'] });
       setDeletingUser(null);
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to delete user';
+      const message = err instanceof Error ? err.message : 'Failed to delete user account';
       toast.error(message);
     } finally {
       setIsDeleting(false);
     }
   };
 
-  const handleExportPDF = () => {
+  const handleExportPDFList = () => {
     if (!users || users.length === 0) {
-      toast.error('No users available to export');
+      toast.error('No accounts available to export');
       return;
     }
     exportUsersToPDF(users, settings?.society_name);
-    setShowExportMenu(false);
   };
 
-  const handleExportExcel = () => {
-    if (!users || users.length === 0) {
-      toast.error('No users available to export');
-      return;
-    }
-    exportUsersToExcel(users, settings?.society_name);
-    setShowExportMenu(false);
-  };
+  // Filtered users for search
+  const filteredUsers = (users || []).filter((u) =>
+    u.email.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    u.role.toLowerCase().includes(searchTerm.toLowerCase())
+  );
 
-  const handleExportCSV = () => {
-    if (!users || users.length === 0) {
-      toast.error('No users available to export');
-      return;
-    }
-    exportUsersToCSV(users);
-    setShowExportMenu(false);
-  };
+  const totalUsersCount = (users || []).length;
+  const adminCount = (users || []).filter((u) => u.role === 'ADMIN').length;
+  const operatorCount = (users || []).filter((u) => u.role === 'OPERATOR').length;
 
   return (
-    <div className="max-w-5xl mx-auto space-y-6 animate-fade-in">
-      {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4">
+    <div className="max-w-6xl mx-auto space-y-6 animate-fade-in">
+      {/* Top Header & Export Action */}
+      <div className="flex flex-col md:flex-row md:items-center justify-between gap-4 bg-white dark:bg-surface-dark p-6 rounded-2xl shadow-card border border-gray-100 dark:border-gray-800">
         <div>
-          <h1 className="text-2xl font-bold text-text dark:text-text-dark">User Account Management</h1>
-          <p className="text-sm text-gray-400 mt-1">
-            පරිශීලක ගිණුම් කළමනාකරණය — Manage staff user accounts, permissions & login details
+          <h1 className="text-2xl font-bold text-text dark:text-text-dark flex items-center gap-2.5">
+            <Users className="text-primary" size={26} /> User Account Management
+          </h1>
+          <p className="text-xs text-gray-400 mt-1">
+            පරිශීලක ගිණුම් කළමනාකරණය — Manage system staff accounts, security roles & print login slips
           </p>
         </div>
 
-        {/* Action Controls & Tab buttons */}
-        <div className="flex items-center gap-3">
-          {/* Export Dropdown */}
-          <div className="relative">
-            <button
-              onClick={() => setShowExportMenu((v) => !v)}
-              className="flex items-center gap-2 bg-emerald-600 hover:bg-emerald-700 text-white px-4 py-2 rounded-xl text-sm font-semibold transition-all shadow-sm"
-            >
-              <Download size={16} /> Export / බාගන්න
-            </button>
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Export PDF Button */}
+          <button
+            onClick={handleExportPDFList}
+            className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white px-5 py-2.5 rounded-xl font-bold text-xs shadow-md transition-all transform active:scale-95"
+          >
+            <FileText size={16} /> Export PDF Account List
+          </button>
 
-            {showExportMenu && (
-              <div className="absolute right-0 mt-2 w-48 bg-white dark:bg-surface-dark border border-gray-100 dark:border-gray-700 rounded-2xl shadow-xl py-2 z-30">
-                <button
-                  onClick={handleExportPDF}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
-                >
-                  <FileText size={15} className="text-red-500" /> Export User List (PDF)
-                </button>
-                <button
-                  onClick={handleExportExcel}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
-                >
-                  <FileSpreadsheet size={15} className="text-emerald-500" /> Export User List (Excel)
-                </button>
-                <button
-                  onClick={handleExportCSV}
-                  className="w-full text-left px-4 py-2 text-xs font-semibold text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-800 flex items-center gap-2"
-                >
-                  <Download size={15} className="text-blue-500" /> Export User List (CSV)
-                </button>
-              </div>
-            )}
-          </div>
-
-          <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-2xl">
+          {/* Navigation Tab Toggle */}
+          <div className="flex bg-gray-100 dark:bg-gray-800 p-1.5 rounded-xl">
             <button
               onClick={() => setActiveTab('list')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'list'
                   ? 'bg-white dark:bg-surface-dark text-primary shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              <Users size={16} /> User Accounts ({(users || []).length})
+              <Users size={15} /> All Accounts ({totalUsersCount})
             </button>
             <button
               onClick={() => setActiveTab('create')}
-              className={`flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-semibold transition-all ${
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg text-xs font-bold transition-all ${
                 activeTab === 'create'
                   ? 'bg-white dark:bg-surface-dark text-primary shadow-sm'
                   : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
               }`}
             >
-              <UserPlus size={16} /> Add New User
+              <UserPlus size={15} /> Create Account
             </button>
           </div>
         </div>
       </div>
 
-      {/* Info Banner */}
-      <div className="flex items-start gap-3 bg-blue-50 dark:bg-blue-900/20 border border-blue-200 dark:border-blue-800 rounded-2xl p-4">
-        <Shield size={18} className="text-blue-500 flex-shrink-0 mt-0.5" />
-        <div className="text-sm text-blue-700 dark:text-blue-300">
-          <p className="font-semibold mb-0.5">Admin Security Control</p>
-          <p className="text-xs leading-relaxed">
-            Only administrators have permission to manage user accounts and download credentials. <strong>OPERATOR</strong> users can view and edit data, while <strong>ADMIN</strong> users have complete access including system settings, backups, and user security.
-          </p>
+      {/* Metrics Summary Cards */}
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="bg-gradient-to-br from-blue-500/10 to-indigo-500/5 border border-blue-200/50 dark:border-blue-800/40 p-4 rounded-2xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-blue-500 text-white flex items-center justify-center font-bold shadow-md">
+            <Users size={22} />
+          </div>
+          <div>
+            <p className="text-xs text-blue-600 dark:text-blue-400 font-semibold uppercase tracking-wider">Total Accounts</p>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{totalUsersCount}</h3>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-purple-500/10 to-pink-500/5 border border-purple-200/50 dark:border-purple-800/40 p-4 rounded-2xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-purple-600 text-white flex items-center justify-center font-bold shadow-md">
+            <Shield size={22} />
+          </div>
+          <div>
+            <p className="text-xs text-purple-600 dark:text-purple-400 font-semibold uppercase tracking-wider">Administrators</p>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{adminCount}</h3>
+          </div>
+        </div>
+
+        <div className="bg-gradient-to-br from-emerald-500/10 to-teal-500/5 border border-emerald-200/50 dark:border-emerald-800/40 p-4 rounded-2xl flex items-center gap-4">
+          <div className="w-12 h-12 rounded-xl bg-emerald-600 text-white flex items-center justify-center font-bold shadow-md">
+            <UserCheck size={22} />
+          </div>
+          <div>
+            <p className="text-xs text-emerald-600 dark:text-emerald-400 font-semibold uppercase tracking-wider">Operators</p>
+            <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{operatorCount}</h3>
+          </div>
         </div>
       </div>
 
-      {/* TAB 1: USER LIST */}
+      {/* TAB 1: ALL ACCOUNTS LIST */}
       {activeTab === 'list' && (
-        <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card overflow-hidden">
-          <div className="p-4 border-b border-gray-100 dark:border-gray-700 flex items-center justify-between">
-            <h2 className="font-bold text-text dark:text-text-dark text-base flex items-center gap-2">
-              <Users size={18} className="text-primary" /> Active System Accounts List
-            </h2>
-            <div className="flex items-center gap-2">
+        <div className="bg-white dark:bg-surface-dark rounded-2xl shadow-card overflow-hidden border border-gray-100 dark:border-gray-800">
+          {/* Search Bar & Header */}
+          <div className="p-4 border-b border-gray-100 dark:border-gray-800 flex flex-col sm:flex-row items-center justify-between gap-3 bg-gray-50/50 dark:bg-gray-800/40">
+            <div className="relative w-full sm:w-80">
+              <Search size={16} className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" />
+              <input
+                type="text"
+                value={searchTerm}
+                onChange={(e) => setSearchTerm(e.target.value)}
+                placeholder="Search account email or role..."
+                className="w-full pl-10 pr-4 py-2 text-xs rounded-xl border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-text dark:text-text-dark focus:outline-none focus:ring-2 focus:ring-primary/30"
+              />
+            </div>
+
+            <div className="flex items-center gap-2 w-full sm:w-auto justify-end">
               <button
-                onClick={handleExportPDF}
-                className="flex items-center gap-1.5 text-xs text-red-600 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 px-3 py-1.5 rounded-lg transition-colors font-semibold"
+                onClick={handleExportPDFList}
+                className="flex items-center gap-1.5 text-xs text-red-600 border border-red-200 bg-red-50 hover:bg-red-100 dark:bg-red-900/20 dark:border-red-800 dark:text-red-300 px-3 py-1.5 rounded-xl transition-colors font-semibold"
               >
-                <Printer size={14} /> Print / Save PDF
+                <Printer size={14} /> Export PDF List
               </button>
               <button
                 onClick={() => refetch()}
-                className="flex items-center gap-1.5 text-xs text-gray-500 hover:text-primary transition-colors border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-lg"
+                className="flex items-center gap-1.5 text-xs text-gray-600 hover:text-primary transition-colors border border-gray-200 dark:border-gray-700 px-3 py-1.5 rounded-xl bg-white dark:bg-gray-800 font-medium"
               >
-                <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} /> Refresh List
+                <RefreshCw size={13} className={isLoading ? 'animate-spin' : ''} /> Refresh
               </button>
             </div>
           </div>
 
+          {/* Accounts Table */}
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
-              <thead className="bg-gray-50 dark:bg-gray-800">
+              <thead className="bg-gray-100/70 dark:bg-gray-800 text-gray-600 dark:text-gray-400">
                 <tr>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">User Email</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Role</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Created Date</th>
-                  <th className="px-4 py-3 text-left text-xs font-semibold text-gray-500 uppercase">Last Sign In</th>
-                  <th className="px-4 py-3 text-right text-xs font-semibold text-gray-500 uppercase">Actions</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">User Account Email</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Role</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Created Date</th>
+                  <th className="px-4 py-3.5 text-left text-xs font-bold uppercase tracking-wider">Last Sign In</th>
+                  <th className="px-4 py-3.5 text-right text-xs font-bold uppercase tracking-wider">Actions (PDF / Security)</th>
                 </tr>
               </thead>
-              <tbody className="divide-y divide-gray-50 dark:divide-gray-700">
+              <tbody className="divide-y divide-gray-100 dark:divide-gray-800">
                 {isLoading ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                      Loading user accounts list...
+                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400 font-medium">
+                      Loading created accounts list...
                     </td>
                   </tr>
-                ) : isError ? (
+                ) : filteredUsers.length === 0 ? (
                   <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-amber-600">
-                      <div className="max-w-md mx-auto space-y-2">
-                        <p className="font-semibold text-sm">Database Function Required</p>
-                        <p className="text-xs text-gray-500">
-                          Please run the user management RPC script in your Supabase SQL Editor to enable full user listing.
-                        </p>
-                      </div>
-                    </td>
-                  </tr>
-                ) : (users || []).length === 0 ? (
-                  <tr>
-                    <td colSpan={5} className="px-4 py-8 text-center text-gray-400">
-                      No user accounts found.
+                    <td colSpan={5} className="px-4 py-12 text-center text-gray-400">
+                      {searchTerm ? 'No accounts match your search.' : 'No created accounts found.'}
                     </td>
                   </tr>
                 ) : (
-                  (users || []).map((u) => (
-                    <tr key={u.id} className="hover:bg-gray-50 dark:hover:bg-gray-800/50 transition-colors">
-                      <td className="px-4 py-3.5 font-medium text-text dark:text-text-dark">
-                        <div className="flex items-center gap-2">
-                          <div className="w-8 h-8 rounded-full bg-primary/10 text-primary flex items-center justify-center font-bold text-xs">
+                  filteredUsers.map((u) => (
+                    <tr key={u.id} className="hover:bg-gray-50/80 dark:hover:bg-gray-800/50 transition-colors">
+                      <td className="px-4 py-4 font-semibold text-gray-800 dark:text-gray-100">
+                        <div className="flex items-center gap-3">
+                          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-primary to-rose-500 text-white flex items-center justify-center font-bold text-sm shadow-sm">
                             {u.email.charAt(0).toUpperCase()}
                           </div>
-                          <span>{u.email}</span>
-                          {currentUser?.id === u.id && (
-                            <span className="text-[10px] bg-emerald-100 text-emerald-700 px-2 py-0.5 rounded-full font-bold">
-                              You
-                            </span>
-                          )}
+                          <div>
+                            <p className="font-semibold text-sm">{u.email}</p>
+                            {currentUser?.id === u.id && (
+                              <span className="inline-block text-[10px] bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300 px-2 py-0.5 rounded-md font-bold mt-0.5">
+                                Current Active Session
+                              </span>
+                            )}
+                          </div>
                         </div>
                       </td>
-                      <td className="px-4 py-3.5">
+
+                      <td className="px-4 py-4">
                         <span
-                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold ${
+                          className={`inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-bold ${
                             u.role === 'ADMIN'
-                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/30 dark:text-purple-300'
-                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/30 dark:text-blue-300'
+                              ? 'bg-purple-100 text-purple-700 dark:bg-purple-900/40 dark:text-purple-300 border border-purple-200'
+                              : 'bg-blue-100 text-blue-700 dark:bg-blue-900/40 dark:text-blue-300 border border-blue-200'
                           }`}
                         >
-                          {u.role === 'ADMIN' ? <Shield size={12} /> : <User size={12} />}
+                          {u.role === 'ADMIN' ? <Shield size={13} /> : <User size={13} />}
                           {u.role}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400">
-                        <span className="flex items-center gap-1">
-                          <Calendar size={12} /> {formatDate(u.created_at)}
+
+                      <td className="px-4 py-4 text-xs text-gray-500 dark:text-gray-400 font-medium">
+                        <span className="flex items-center gap-1.5">
+                          <Calendar size={13} className="text-gray-400" /> {formatDate(u.created_at)}
                         </span>
                       </td>
-                      <td className="px-4 py-3.5 text-xs text-gray-500 dark:text-gray-400">
+
+                      <td className="px-4 py-4 text-xs text-gray-500 dark:text-gray-400 font-medium">
                         {u.last_sign_in_at ? (
-                          <span className="flex items-center gap-1">
-                            <Clock size={12} /> {new Date(u.last_sign_in_at).toLocaleString('en-LK')}
+                          <span className="flex items-center gap-1.5">
+                            <Clock size={13} className="text-emerald-500" /> {new Date(u.last_sign_in_at).toLocaleString('en-LK')}
                           </span>
                         ) : (
-                          <span className="text-gray-400 italic">Never</span>
+                          <span className="text-gray-400 italic">Never Signed In</span>
                         )}
                       </td>
-                      <td className="px-4 py-3.5 text-right">
+
+                      <td className="px-4 py-4 text-right">
                         <div className="flex items-center justify-end gap-2">
-                          {/* Download Login Slip */}
+                          {/* Export PDF Slip Button */}
                           <button
                             onClick={() => downloadAccountSlip(u.email, u.role, undefined, settings?.society_name)}
-                            title="Download Login Slip / Slip එක බාගන්න"
-                            className="flex items-center gap-1 px-2.5 py-1 text-xs bg-blue-50 text-blue-600 hover:bg-blue-100 dark:bg-blue-900/20 dark:text-blue-300 rounded-lg transition-colors font-medium"
+                            title="Export PDF Login Details Slip / Slip එක බාගන්න"
+                            className="flex items-center gap-1 px-3 py-1.5 bg-gradient-to-r from-red-500 to-rose-600 hover:from-red-600 hover:to-rose-700 text-white rounded-xl text-xs font-bold shadow-sm transition-all transform active:scale-95"
                           >
-                            <FileText size={14} /> Slip
+                            <FileText size={14} /> PDF Slip
                           </button>
 
-                          {/* Role Toggle */}
+                          {/* Role Toggle Button */}
                           <button
                             onClick={() =>
                               roleMutation.mutate({
@@ -397,29 +390,29 @@ const UserManagementPage: React.FC = () => {
                               })
                             }
                             title="Toggle Role / තනතුර වෙනස් කරන්න"
-                            className="px-2.5 py-1 text-xs border border-gray-200 dark:border-gray-600 hover:border-primary hover:text-primary rounded-lg transition-colors"
+                            className="px-3 py-1.5 text-xs font-semibold border border-gray-200 dark:border-gray-700 hover:border-primary hover:text-primary rounded-xl transition-colors bg-white dark:bg-gray-800"
                           >
                             Set {u.role === 'ADMIN' ? 'Operator' : 'Admin'}
                           </button>
 
-                          {/* Reset Password */}
+                          {/* Reset Password Button */}
                           <button
                             onClick={() => {
                               setResetUser(u);
                               setNewPassword('');
                             }}
                             title="Reset Password / මුරපදය නැවත සකසන්න"
-                            className="p-1.5 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/20 dark:text-amber-300 rounded-lg transition-colors"
+                            className="p-2 bg-amber-50 text-amber-600 hover:bg-amber-100 dark:bg-amber-900/30 dark:text-amber-300 rounded-xl transition-colors border border-amber-200/60"
                           >
                             <KeyRound size={15} />
                           </button>
 
-                          {/* Delete User */}
+                          {/* Delete Account Button */}
                           <button
                             onClick={() => setDeletingUser(u)}
                             disabled={currentUser?.id === u.id}
-                            title="Delete User / ඉවත් කරන්න"
-                            className="p-1.5 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/20 dark:text-red-300 rounded-lg transition-colors disabled:opacity-30 disabled:cursor-not-allowed"
+                            title="Delete Account / ඉවත් කරන්න"
+                            className="p-2 bg-red-50 text-red-600 hover:bg-red-100 dark:bg-red-900/30 dark:text-red-300 rounded-xl transition-colors border border-red-200/60 disabled:opacity-30 disabled:cursor-not-allowed"
                           >
                             <Trash2 size={15} />
                           </button>
@@ -441,20 +434,20 @@ const UserManagementPage: React.FC = () => {
             <motion.div
               initial={{ opacity: 0, y: -8 }}
               animate={{ opacity: 1, y: 0 }}
-              className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-5 space-y-3"
+              className="bg-emerald-50 dark:bg-emerald-900/20 border border-emerald-200 dark:border-emerald-800 rounded-2xl p-5 space-y-4 shadow-sm"
             >
               <div className="flex items-center gap-3">
-                <CheckCircle size={20} className="text-emerald-500 flex-shrink-0" />
+                <CheckCircle size={22} className="text-emerald-500 flex-shrink-0" />
                 <div>
-                  <p className="font-bold text-emerald-800 dark:text-emerald-200 text-base">User Account Created Successfully!</p>
-                  <p className="text-xs text-emerald-600 dark:text-emerald-300">
+                  <p className="font-bold text-emerald-800 dark:text-emerald-200 text-base">Account Created Successfully!</p>
+                  <p className="text-xs text-emerald-700 dark:text-emerald-300 mt-0.5">
                     <strong>{createdAccount.email}</strong> is now registered as <strong>{createdAccount.role}</strong>.
                   </p>
                 </div>
               </div>
 
-              <div className="pt-2 border-t border-emerald-200 dark:border-emerald-800/60 flex items-center justify-between">
-                <span className="text-xs text-emerald-700 font-medium">Download Account Login Credentials Slip:</span>
+              <div className="pt-3 border-t border-emerald-200 dark:border-emerald-800/80 flex items-center justify-between gap-3">
+                <span className="text-xs text-emerald-800 dark:text-emerald-200 font-medium">PDF Credentials Slip:</span>
                 <button
                   onClick={() =>
                     downloadAccountSlip(
@@ -464,9 +457,9 @@ const UserManagementPage: React.FC = () => {
                       settings?.society_name
                     )
                   }
-                  className="flex items-center gap-1.5 bg-emerald-600 hover:bg-emerald-700 text-white px-3.5 py-1.5 rounded-xl text-xs font-bold shadow-sm transition-all"
+                  className="flex items-center gap-2 bg-gradient-to-r from-red-600 to-rose-700 hover:from-red-700 hover:to-rose-800 text-white px-4 py-2 rounded-xl text-xs font-bold shadow-md transition-all transform active:scale-95"
                 >
-                  <Download size={14} /> Download Login Slip (PDF)
+                  <FileText size={15} /> Export PDF Slip
                 </button>
               </div>
             </motion.div>
@@ -475,22 +468,22 @@ const UserManagementPage: React.FC = () => {
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
-            className="bg-white dark:bg-surface-dark rounded-2xl shadow-card p-6"
+            className="bg-white dark:bg-surface-dark rounded-2xl shadow-card p-6 border border-gray-100 dark:border-gray-800"
           >
             <div className="flex items-center gap-3 mb-6">
-              <div className="w-10 h-10 rounded-xl bg-primary/10 flex items-center justify-center">
-                <UserPlus size={20} className="text-primary" />
+              <div className="w-11 h-11 rounded-xl bg-primary/10 flex items-center justify-center">
+                <UserPlus size={22} className="text-primary" />
               </div>
               <div>
-                <h2 className="font-semibold text-text dark:text-text-dark">Create New User Account</h2>
-                <p className="text-xs text-gray-400">නව පරිශීලකයෙකු සාදා පිවිසුම් පත්‍රිකාව බාගන්න</p>
+                <h2 className="font-bold text-gray-800 dark:text-gray-100 text-lg">Create New Staff Account</h2>
+                <p className="text-xs text-gray-400">නව පරිශීලක ගිණුමක් සාදා PDF පිවිසුම් පත්‍රිකාව ලබාගන්න</p>
               </div>
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-5">
               {/* Email */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   Email Address <span className="text-red-400">*</span>
                 </label>
                 <input
@@ -500,16 +493,14 @@ const UserManagementPage: React.FC = () => {
                   onChange={handleChange}
                   placeholder="user@cooperative.lk"
                   autoComplete="off"
-                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none
-                    focus:ring-2 focus:ring-primary/30 focus:border-primary
-                    dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                  className="w-full px-4 py-3 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                   required
                 />
               </div>
 
               {/* Role */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   User Role <span className="text-red-400">*</span>
                 </label>
                 <div className="grid grid-cols-2 gap-3">
@@ -518,16 +509,16 @@ const UserManagementPage: React.FC = () => {
                     onClick={() => setForm((f) => ({ ...f, role: 'OPERATOR' }))}
                     className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
                       form.role === 'OPERATOR'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'
                     }`}
                   >
-                    <User size={18} className={form.role === 'OPERATOR' ? 'text-primary' : 'text-gray-400'} />
+                    <User size={20} className={form.role === 'OPERATOR' ? 'text-primary' : 'text-gray-400'} />
                     <div>
-                      <p className={`text-sm font-semibold ${form.role === 'OPERATOR' ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <p className={`text-sm font-bold ${form.role === 'OPERATOR' ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
                         Operator
                       </p>
-                      <p className="text-xs text-gray-400">View & Edit</p>
+                      <p className="text-xs text-gray-400">View & Edit Access</p>
                     </div>
                   </button>
                   <button
@@ -535,16 +526,16 @@ const UserManagementPage: React.FC = () => {
                     onClick={() => setForm((f) => ({ ...f, role: 'ADMIN' }))}
                     className={`flex items-center gap-3 p-4 rounded-xl border-2 transition-all text-left ${
                       form.role === 'ADMIN'
-                        ? 'border-primary bg-primary/5'
-                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-600'
+                        ? 'border-primary bg-primary/5 shadow-sm'
+                        : 'border-gray-200 hover:border-gray-300 dark:border-gray-700'
                     }`}
                   >
-                    <Shield size={18} className={form.role === 'ADMIN' ? 'text-primary' : 'text-gray-400'} />
+                    <Shield size={20} className={form.role === 'ADMIN' ? 'text-primary' : 'text-gray-400'} />
                     <div>
-                      <p className={`text-sm font-semibold ${form.role === 'ADMIN' ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
+                      <p className={`text-sm font-bold ${form.role === 'ADMIN' ? 'text-primary' : 'text-gray-700 dark:text-gray-300'}`}>
                         Admin
                       </p>
-                      <p className="text-xs text-gray-400">Full Access</p>
+                      <p className="text-xs text-gray-400">Full System Access</p>
                     </div>
                   </button>
                 </div>
@@ -552,7 +543,7 @@ const UserManagementPage: React.FC = () => {
 
               {/* Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   Password <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -563,9 +554,7 @@ const UserManagementPage: React.FC = () => {
                     onChange={handleChange}
                     placeholder="Min. 8 characters"
                     autoComplete="new-password"
-                    className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 text-sm focus:outline-none
-                      focus:ring-2 focus:ring-primary/30 focus:border-primary
-                      dark:bg-gray-800 dark:border-gray-600 dark:text-white"
+                    className="w-full px-4 py-3 pr-12 rounded-xl border border-gray-200 text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white"
                     required
                   />
                   <button
@@ -573,14 +562,14 @@ const UserManagementPage: React.FC = () => {
                     onClick={() => setShowPassword((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                   >
-                    {showPassword ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
               </div>
 
               {/* Confirm Password */}
               <div>
-                <label className="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                <label className="block text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1.5">
                   Confirm Password <span className="text-red-400">*</span>
                 </label>
                 <div className="relative">
@@ -591,11 +580,9 @@ const UserManagementPage: React.FC = () => {
                     onChange={handleChange}
                     placeholder="Repeat password"
                     autoComplete="new-password"
-                    className={`w-full px-4 py-3 pr-12 rounded-xl border text-sm focus:outline-none
-                      focus:ring-2 focus:ring-primary/30 focus:border-primary
-                      dark:bg-gray-800 dark:border-gray-600 dark:text-white
-                      ${form.confirmPassword && form.password !== form.confirmPassword
-                        ? 'border-red-400' : 'border-gray-200'}`}
+                    className={`w-full px-4 py-3 pr-12 rounded-xl border text-sm focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary dark:bg-gray-800 dark:border-gray-600 dark:text-white ${
+                      form.confirmPassword && form.password !== form.confirmPassword ? 'border-red-400' : 'border-gray-200'
+                    }`}
                     required
                   />
                   <button
@@ -603,29 +590,27 @@ const UserManagementPage: React.FC = () => {
                     onClick={() => setShowConfirm((v) => !v)}
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600 p-1"
                   >
-                    {showConfirm ? <EyeOff size={16} /> : <Eye size={16} />}
+                    {showConfirm ? <EyeOff size={18} /> : <Eye size={18} />}
                   </button>
                 </div>
                 {form.confirmPassword && form.password !== form.confirmPassword && (
-                  <p className="text-red-500 text-xs mt-1">Passwords do not match</p>
+                  <p className="text-red-500 text-xs mt-1 font-medium">Passwords do not match</p>
                 )}
               </div>
 
-              {/* Submit */}
+              {/* Submit Button */}
               <div className="pt-2">
                 <button
                   type="submit"
                   disabled={isCreating}
-                  className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover
-                    text-white py-3 px-6 rounded-xl font-medium text-sm transition-all shadow-sm
-                    hover:shadow-md disabled:opacity-60"
+                  className="w-full flex items-center justify-center gap-2 bg-gradient-to-r from-primary to-rose-600 hover:from-primary-hover hover:to-rose-700 text-white py-3.5 px-6 rounded-xl font-bold text-sm transition-all shadow-md hover:shadow-lg disabled:opacity-60 transform active:scale-98"
                 >
                   {isCreating ? (
-                    <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
                   ) : (
-                    <UserPlus size={16} />
+                    <UserPlus size={18} />
                   )}
-                  {isCreating ? 'Creating User...' : 'Create Account & Download Slip'}
+                  {isCreating ? 'Creating Account...' : 'Create Account & Generate PDF Slip'}
                 </button>
               </div>
             </form>
@@ -646,7 +631,7 @@ const UserManagementPage: React.FC = () => {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-surface-dark rounded-2xl max-w-md w-full p-6 shadow-2xl relative"
+              className="bg-white dark:bg-surface-dark rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-gray-100 dark:border-gray-700"
             >
               <button
                 onClick={() => setResetUser(null)}
@@ -656,19 +641,19 @@ const UserManagementPage: React.FC = () => {
               </button>
 
               <div className="flex items-center gap-3 mb-4">
-                <div className="w-10 h-10 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center">
-                  <KeyRound size={20} />
+                <div className="w-11 h-11 rounded-xl bg-amber-100 text-amber-600 flex items-center justify-center font-bold">
+                  <KeyRound size={22} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-800 dark:text-gray-100">Reset User Password</h3>
+                  <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base">Reset Account Password</h3>
                   <p className="text-xs text-gray-400">{resetUser.email}</p>
                 </div>
               </div>
 
               <form onSubmit={handleResetPassword} className="space-y-4 mt-4">
                 <div>
-                  <label className="block text-xs font-semibold text-gray-600 dark:text-gray-300 mb-1">
-                    New Password (Min 8 chars)
+                  <label className="block text-xs font-bold text-gray-600 dark:text-gray-300 mb-1">
+                    New Password (Min. 8 characters)
                   </label>
                   <div className="relative">
                     <input
@@ -684,7 +669,7 @@ const UserManagementPage: React.FC = () => {
                       onClick={() => setShowResetPassword((v) => !v)}
                       className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
                     >
-                      {showResetPassword ? <EyeOff size={15} /> : <Eye size={15} />}
+                      {showResetPassword ? <EyeOff size={16} /> : <Eye size={16} />}
                     </button>
                   </div>
                 </div>
@@ -693,16 +678,16 @@ const UserManagementPage: React.FC = () => {
                   <button
                     type="button"
                     onClick={() => setResetUser(null)}
-                    className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                    className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
                   >
                     Cancel
                   </button>
                   <button
                     type="submit"
                     disabled={isResetting}
-                    className="px-5 py-2 rounded-xl bg-amber-500 hover:bg-amber-600 text-white text-xs font-semibold transition-colors disabled:opacity-60"
+                    className="flex items-center gap-1.5 px-5 py-2.5 rounded-xl bg-gradient-to-r from-amber-500 to-amber-600 hover:from-amber-600 hover:to-amber-700 text-white text-xs font-bold shadow-sm transition-all disabled:opacity-60"
                   >
-                    {isResetting ? 'Resetting...' : 'Save Password & Download Slip'}
+                    <FileText size={14} /> Save & Export PDF Slip
                   </button>
                 </div>
               </form>
@@ -711,7 +696,7 @@ const UserManagementPage: React.FC = () => {
         )}
       </AnimatePresence>
 
-      {/* DELETE USER MODAL */}
+      {/* DELETE ACCOUNT MODAL */}
       <AnimatePresence>
         {deletingUser && (
           <motion.div
@@ -724,33 +709,33 @@ const UserManagementPage: React.FC = () => {
               initial={{ scale: 0.95, y: 20 }}
               animate={{ scale: 1, y: 0 }}
               exit={{ scale: 0.95, y: 20 }}
-              className="bg-white dark:bg-surface-dark rounded-2xl max-w-md w-full p-6 shadow-2xl relative"
+              className="bg-white dark:bg-surface-dark rounded-2xl max-w-md w-full p-6 shadow-2xl relative border border-gray-100 dark:border-gray-700"
             >
               <div className="flex items-center gap-3 mb-4 text-red-600">
-                <div className="w-10 h-10 rounded-xl bg-red-100 flex items-center justify-center">
-                  <ShieldAlert size={22} />
+                <div className="w-11 h-11 rounded-xl bg-red-100 flex items-center justify-center">
+                  <ShieldAlert size={24} />
                 </div>
                 <div>
-                  <h3 className="font-bold text-gray-800 dark:text-gray-100">Delete User Account</h3>
-                  <p className="text-xs text-red-500 font-semibold">Action cannot be undone</p>
+                  <h3 className="font-bold text-gray-800 dark:text-gray-100 text-base">Delete User Account</h3>
+                  <p className="text-xs text-red-500 font-bold">Permanent Security Action</p>
                 </div>
               </div>
 
               <p className="text-sm text-gray-600 dark:text-gray-300 leading-relaxed mb-6">
-                Are you sure you want to permanently delete the user account for <strong>{deletingUser.email}</strong>? They will immediately lose access to the system.
+                Are you sure you want to permanently delete the user account for <strong>{deletingUser.email}</strong>? They will immediately lose login access to the system.
               </p>
 
               <div className="flex justify-end gap-3">
                 <button
                   onClick={() => setDeletingUser(null)}
-                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-medium text-gray-600 hover:bg-gray-50"
+                  className="px-4 py-2 rounded-xl border border-gray-200 text-xs font-semibold text-gray-600 hover:bg-gray-50"
                 >
                   Cancel
                 </button>
                 <button
                   onClick={handleDeleteUser}
                   disabled={isDeleting}
-                  className="px-5 py-2 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-semibold transition-colors disabled:opacity-60"
+                  className="px-5 py-2.5 rounded-xl bg-red-600 hover:bg-red-700 text-white text-xs font-bold transition-all disabled:opacity-60 shadow-sm"
                 >
                   {isDeleting ? 'Deleting...' : 'Delete Account'}
                 </button>
