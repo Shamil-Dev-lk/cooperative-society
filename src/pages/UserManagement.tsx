@@ -4,7 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   UserPlus, Shield, User, Eye, EyeOff, CheckCircle, Users, KeyRound,
   Trash2, RefreshCw, X, ShieldAlert, Calendar, Clock, FileText, Search,
-  Printer, UserCheck
+  Printer, UserCheck, Copy
 } from 'lucide-react';
 import { supabase } from '@/services/supabaseClient';
 import { authService, SystemUser } from '@/services/authService';
@@ -53,7 +53,7 @@ const UserManagementPage: React.FC = () => {
   const [isDeleting, setIsDeleting] = useState(false);
 
   // Query system users (with fallback for old created accounts)
-  const { data: users, isLoading, isError, refetch } = useQuery({
+  const { data: users, isLoading, refetch } = useQuery({
     queryKey: ['system-users'],
     queryFn: () => authService.getAllUsers(),
     staleTime: 5000,
@@ -263,6 +263,8 @@ const UserManagementPage: React.FC = () => {
             <h3 className="text-2xl font-bold text-gray-800 dark:text-white">{operatorCount}</h3>
           </div>
         </div>
+      </div>
+
       {/* Info Banner & SQL Setup Guide */}
       <div className="bg-gradient-to-r from-amber-50 to-orange-50 dark:from-amber-900/20 dark:to-orange-900/10 border border-amber-200 dark:border-amber-800/60 rounded-2xl p-4 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-sm">
         <div className="flex items-start gap-3">
