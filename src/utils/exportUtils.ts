@@ -255,3 +255,198 @@ export function exportDivisionReportToExcel(
   XLSX.utils.book_append_sheet(wb, ws, 'Division Report');
   XLSX.writeFile(wb, `${title.replace(/\s+/g, '_')}_${Date.now()}.xlsx`);
 }
+
+// ============================================================
+// System Users Export
+// ============================================================
+
+export interface SystemUserExportItem {
+  email: string;
+  role: string;
+  created_at: string;
+  last_sign_in_at: string | null;
+}
+
+export function exportUsersToPDF(users: SystemUserExportItem[], societyName: string = 'Cooperative Society'): void {
+  const tableRows = users.map((u, i) => `<tr>
+    <td>${i + 1}</td>
+    <td><b>${u.email}</b></td>
+    <td><span style="padding:2px 8px;border-radius:12px;font-size:8px;font-weight:700;background:${u.role === 'ADMIN' ? '#f3e8ff;color:#7e22ce' : '#dbeafe;color:#1d4ed8'}">${u.role}</span></td>
+    <td>${formatDate(u.created_at)}</td>
+    <td>${u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('en-LK') : 'Never'}</td>
+  </tr>`).join('');
+
+  const html = `<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8"/>
+  <title>System Users Account List</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Noto Sans Sinhala','Noto Sans',sans-serif;font-size:10px;color:#222;background:#fff;padding:12mm}
+    .no-print{background:#CC0000;color:#fff;border:none;padding:10px 24px;font-size:13px;border-radius:6px;cursor:pointer;display:block;margin:0 auto 16px;font-weight:700}
+    .header{text-align:center;border-bottom:2px solid #CC0000;padding-bottom:10px;margin-bottom:12px}
+    .header h1{font-size:18px;color:#CC0000;margin-bottom:2px}
+    .header h2{font-size:12px;color:#444;font-weight:600}
+    table{width:100%;border-collapse:collapse;margin-top:10px}
+    th{background:#CC0000;color:#fff;padding:6px;font-size:9px;text-align:left}
+    td{padding:6px;border-bottom:1px solid #eee;font-size:9.5px}
+    tr:nth-child(even) td{background:#fafafa}
+    .footer{text-align:center;margin-top:16px;font-size:8px;color:#888}
+    @media print{.no-print{display:none!important}}
+  </style>
+</head>
+<body>
+  <button class="no-print" onclick="window.print()">Print / Save as PDF</button>
+  <div class="header">
+    <h1>${societyName}</h1>
+    <h2>System User Accounts List (පරිශීලක ගිණුම් ලේඛනය)</h2>
+    <small>Generated: ${new Date().toLocaleString('en-LK')} | Total Users: ${users.length}</small>
+  </div>
+  <table>
+    <thead><tr>
+      <th>#</th>
+      <th>User Email</th>
+      <th>Role</th>
+      <th>Created Date</th>
+      <th>Last Sign In</th>
+    </tr></thead>
+    <tbody>${tableRows}</tbody>
+  </table>
+  <div class="footer">${societyName} Management System</div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
+export function exportUsersToExcel(users: SystemUserExportItem[], societyName: string = 'Cooperative Society'): void {
+  const wsData = [
+    [`${societyName} — System User Accounts List`],
+    [`Generated: ${new Date().toLocaleString('en-LK')}`],
+    [],
+    ['#', 'User Email', 'Role', 'Created Date', 'Last Sign In'],
+    ...users.map((u, i) => [
+      i + 1,
+      u.email,
+      u.role,
+      formatDate(u.created_at),
+      u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('en-LK') : 'Never',
+    ]),
+  ];
+
+  const ws = XLSX.utils.aoa_to_sheet(wsData);
+  ws['!cols'] = [{ wch: 5 }, { wch: 35 }, { wch: 15 }, { wch: 20 }, { wch: 25 }];
+  const wb = XLSX.utils.book_new();
+  XLSX.utils.book_append_sheet(wb, ws, 'User Accounts');
+  XLSX.writeFile(wb, `User_Accounts_${Date.now()}.xlsx`);
+}
+
+export function exportUsersToCSV(users: SystemUserExportItem[]): void {
+  const rows = users.map((u) => ({
+    'Email': u.email,
+    'Role': u.role,
+    'Created Date': formatDate(u.created_at),
+    'Last Sign In': u.last_sign_in_at ? new Date(u.last_sign_in_at).toLocaleString('en-LK') : 'Never',
+  }));
+
+  const csv = Papa.unparse(rows);
+  const bom = '\uFEFF';
+  const blob = new Blob([bom + csv], { type: 'text/csv;charset=utf-8;' });
+  const url = URL.createObjectURL(blob);
+  const link = document.createElement('a');
+  link.href = url;
+  link.download = `User_Accounts_${Date.now()}.csv`;
+  link.click();
+  URL.revokeObjectURL(url);
+}
+
+// Download Login Credentials Slip PDF / HTML
+export function downloadAccountSlip(
+  email: string,
+  role: string,
+  password?: string,
+  societyName: string = 'Cooperative Society'
+): void {
+  const portalUrl = 'https://shamil-dev-lk.github.io/login';
+  const html = `<!DOCTYPE html>
+<html lang="si">
+<head>
+  <meta charset="UTF-8"/>
+  <title>Login Credentials — ${email}</title>
+  <style>
+    @import url('https://fonts.googleapis.com/css2?family=Noto+Sans+Sinhala:wght@400;600;700&family=Noto+Sans:wght@400;600;700&display=swap');
+    *{box-sizing:border-box;margin:0;padding:0}
+    body{font-family:'Noto Sans Sinhala','Noto Sans',sans-serif;background:#f8fafc;padding:30px;color:#1e293b}
+    .card{max-width:500px;margin:0 auto;background:#fff;border:2px solid #e2e8f0;border-radius:16px;padding:28px;box-shadow:0 10px 25px -5px rgba(0,0,0,0.1)}
+    .header{text-align:center;border-bottom:2px dashed #cbd5e1;padding-bottom:16px;margin-bottom:20px}
+    .header h1{color:#CC0000;font-size:20px;margin-bottom:4px}
+    .header p{font-size:12px;color:#64748b;font-weight:600}
+    .field{margin-bottom:14px;background:#f1f5f9;padding:12px 16px;border-radius:10px}
+    .label{font-size:10px;text-transform:uppercase;letter-spacing:0.5px;color:#64748b;font-weight:700;margin-bottom:2px}
+    .val{font-size:14px;font-weight:700;color:#0f172a;word-break:break-all}
+    .val-pwd{font-family:monospace;font-size:16px;color:#CC0000;letter-spacing:1px}
+    .badge{display:inline-block;padding:3px 10px;border-radius:12px;font-size:10px;font-weight:700;background:${role === 'ADMIN' ? '#f3e8ff;color:#7e22ce' : '#dbeafe;color:#1d4ed8'}}
+    .notice{margin-top:20px;background:#fef2f2;border:1px solid #fecaca;padding:12px;border-radius:10px;font-size:10.5px;color:#991b1b;line-height:1.4}
+    .btn-print{background:#CC0000;color:#fff;border:none;padding:10px 20px;border-radius:8px;font-weight:700;font-size:13px;cursor:pointer;width:100%;margin-top:20px}
+    @media print{.btn-print{display:none!important}body{padding:0;background:#fff}.card{box-shadow:none;border-color:#ccc}}
+  </style>
+</head>
+<body>
+  <div class="card">
+    <div class="header">
+      <h1>${societyName}</h1>
+      <p>System User Access & Login Slip</p>
+      <p style="font-size:10px;color:#94a3b8;margin-top:2px">පරිශීලක ගිණුම් පිවිසුම් පත්‍රිකාව</p>
+    </div>
+
+    <div class="field">
+      <div class="label">Login Portal Web Address</div>
+      <div class="val" style="color:#0284c7;font-size:13px">${portalUrl}</div>
+    </div>
+
+    <div class="field">
+      <div class="label">User Account Email / විද්‍යුත් තැපෑල</div>
+      <div class="val">${email}</div>
+    </div>
+
+    ${password ? `<div class="field" style="background:#fff1f1;border:1px solid #ffe4e4">
+      <div class="label" style="color:#991b1b">Password / මුරපදය</div>
+      <div class="val val-pwd">${password}</div>
+    </div>` : ''}
+
+    <div class="field">
+      <div class="label">User Role / තනතුර</div>
+      <div style="margin-top:2px"><span class="badge">${role}</span></div>
+    </div>
+
+    <div class="field">
+      <div class="label">Issued Date & Time</div>
+      <div class="val" style="font-size:11px;font-weight:600;color:#475569">${new Date().toLocaleString('en-LK')}</div>
+    </div>
+
+    <div class="notice">
+      <b>⚠️ SECURITY NOTICE:</b> Please change your password upon your first login. Do not share your login credentials with unauthorized personnel.
+    </div>
+
+    <button class="btn-print" onclick="window.print()">Print / Download Slip (PDF)</button>
+  </div>
+</body>
+</html>`;
+
+  const blob = new Blob([html], { type: 'text/html;charset=utf-8' });
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url;
+  a.target = '_blank';
+  a.click();
+  setTimeout(() => URL.revokeObjectURL(url), 30000);
+}
+
