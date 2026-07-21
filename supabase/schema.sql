@@ -418,6 +418,78 @@ CREATE OR REPLACE TRIGGER trigger_user_creation
     EXECUTE FUNCTION public.handle_user_creation();
 
 -- ============================================================
+-- USER MANAGEMENT ADMIN RPC FUNCTIONS
+-- ============================================================
+
+-- Function to list all system users
+CREATE OR REPLACE FUNCTION public.get_all_users()
+RETURNS TABLE (
+    id UUID,
+    email TEXT,
+    role TEXT,
+    created_at TIMESTAMPTZ,
+    last_sign_in_at TIMESTAMPTZ
+) AS $$
+BEGIN
+    IF public.get_user_role() != 'ADMIN' THEN
+        RAISE EXCEPTION 'Only administrators can view system users.';
+    END IF;
+
+    RETURN QUERY
+    SELECT 
+        u.id,
+        u.email::text,
+        COALESCE(u.raw_user_meta_data->>'role', 'OPERATOR')::text AS role,
+        u.created_at,
+        u.last_sign_in_at
+    FROM auth.users u
+    ORDER BY u.created_at DESC;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to update a user's role
+CREATE OR REPLACE FUNCTION public.update_user_role(target_user_id UUID, new_role TEXT)
+RETURNS VOID AS $$
+BEGIN
+    IF public.get_user_role() != 'ADMIN' THEN
+        RAISE EXCEPTION 'Only administrators can update user roles.';
+    END IF;
+
+    UPDATE auth.users
+    SET raw_user_meta_data = jsonb_set(COALESCE(raw_user_meta_data, '{}'::jsonb), '{role}', to_jsonb(new_role)),
+        updated_at = NOW()
+    WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to reset a user's password
+CREATE OR REPLACE FUNCTION public.reset_user_password(target_user_id UUID, new_password TEXT)
+RETURNS VOID AS $$
+BEGIN
+    IF public.get_user_role() != 'ADMIN' THEN
+        RAISE EXCEPTION 'Only administrators can reset user passwords.';
+    END IF;
+
+    UPDATE auth.users
+    SET encrypted_password = crypt(new_password, gen_salt('bf')),
+        updated_at = NOW()
+    WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Function to delete a user
+CREATE OR REPLACE FUNCTION public.delete_user(target_user_id UUID)
+RETURNS VOID AS $$
+BEGIN
+    IF public.get_user_role() != 'ADMIN' THEN
+        RAISE EXCEPTION 'Only administrators can delete users.';
+    END IF;
+
+    DELETE FROM auth.users WHERE id = target_user_id;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- ============================================================
 -- GRANT PERMISSIONS
 -- ============================================================
 
@@ -425,6 +497,10 @@ GRANT USAGE ON SCHEMA public TO anon, authenticated;
 GRANT ALL ON ALL TABLES IN SCHEMA public TO authenticated;
 GRANT SELECT ON ALL TABLES IN SCHEMA public TO anon;
 GRANT EXECUTE ON FUNCTION public.get_user_role() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.get_all_users() TO authenticated;
+GRANT EXECUTE ON FUNCTION public.update_user_role(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.reset_user_password(UUID, TEXT) TO authenticated;
+GRANT EXECUTE ON FUNCTION public.delete_user(UUID) TO authenticated;
 
 
 -- ============================================================
