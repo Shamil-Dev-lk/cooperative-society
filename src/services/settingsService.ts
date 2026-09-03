@@ -1,28 +1,39 @@
 import { supabase } from './supabaseClient';
 import type { Settings } from '@/types';
 
-const SETTINGS_ID = 'singleton'; // We store one settings row
+const SETTINGS_ID = 'singleton';
 
 export const settingsService = {
   async get(): Promise<Settings> {
-    const { data, error } = await supabase
-      .from('settings')
-      .select('*')
-      .limit(1)
-      .maybeSingle();
+    try {
+      const { data, error } = await supabase
+        .from('settings')
+        .select('*')
+        .limit(1)
+        .maybeSingle();
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return (
-      data || {
+      return (
+        data || {
+          society_name: 'Cooperative Society',
+          address: '',
+          telephone: '',
+          email: '',
+          logo_url: '',
+          theme_color: '#CC0000',
+        }
+      );
+    } catch {
+      return {
         society_name: 'Cooperative Society',
         address: '',
         telephone: '',
         email: '',
         logo_url: '',
         theme_color: '#CC0000',
-      }
-    );
+      };
+    }
   },
 
   async save(settings: Omit<Settings, 'id' | 'created_at' | 'updated_at'>): Promise<Settings> {
