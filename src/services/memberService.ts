@@ -177,6 +177,55 @@ export const memberService = {
     if (error) throw error;
   },
 
+  async getExistingMembersForCheck(): Promise<{
+    existingMemberNos: Set<string>;
+    existingNICs: Set<string>;
+    existingNames: Set<string>;
+  }> {
+    const memberNos = new Set<string>();
+    const nics = new Set<string>();
+    const names = new Set<string>();
+
+    const pageSize = 1000;
+    let page = 0;
+
+    while (true) {
+      const { data, error } = await supabase
+        .from('members')
+        .select('member_no, nic, name')
+        .range(page * pageSize, (page + 1) * pageSize - 1);
+
+      if (error) throw error;
+      if (!data || data.length === 0) break;
+
+      for (const m of data as { member_no?: string; nic?: string; name?: string }[]) {
+        if (m.member_no) memberNos.add(String(m.member_no).trim());
+        if (m.nic) {
+          const normNic = String(m.nic).trim().toUpperCase().replace(/[\s-]/g, '');
+          if (normNic) nics.add(normNic);
+        }
+        if (m.name) {
+          const normName = String(m.name)
+            .trim()
+            .toLowerCase()
+            .replace(/\s+/g, ' ')
+            .replace(/^(mr|mrs|ms|dr|prof|rev)\.?\s+/i, '')
+            .replace(/\s+/g, '');
+          if (normName) names.add(normName);
+        }
+      }
+
+      if (data.length < pageSize) break;
+      page++;
+    }
+
+    return {
+      existingMemberNos: memberNos,
+      existingNICs: nics,
+      existingNames: names,
+    };
+  },
+
   async getAllMemberNos(): Promise<Set<string>> {
     const { data, error } = await supabase
       .from('members')
@@ -188,19 +237,68 @@ export const memberService = {
 
   async batchInsert(
     members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
-    batchSize = 500,
+    batchSize = 100,
     onProgress?: (imported: number, total: number) => void
   ): Promise<{ imported: number; failed: number }> {
     let imported = 0;
     let skipped = 0;
 
-    for (let i = 0; i < members.length; i += batchSize) {
-      const batch = members.slice(i, i + batchSize);
+    for (let i = 0; i < members.length; i++) {
+      const m = members[i];
+      const cleanMemberNo = String(m.member_no ?? '').trim();
+      const cleanNic = String(m.nic ?? '').trim().toUpperCase().replace(/[\s-]/g, '');
+      const cleanName = String(m.name ?? '').trim().toLowerCase().replace(/\s+/g, '');
 
-      // Clean each record before inserting
-      const cleanBatch = batch.map((m) => ({
+      // FINAL DATABASE SAFETY CHECK immediately before creating each member record
+      let isDuplicate = false;
+
+      // 1. Check NIC if present in candidate record
+      if (cleanNic) {
+        const { data: existingNic } = await supabase
+          .from('members')
+          .select('id')
+          .ilike('nic', cleanNic)
+          .limit(1);
+        if (existingNic && existingNic.length > 0) {
+          isDuplicate = true;
+        }
+      }
+
+      // 2. Check Name if NIC is empty in candidate record
+      if (!isDuplicate && !cleanNic && cleanName) {
+        const { data: existingName } = await supabase
+          .from('members')
+          .select('id')
+          .ilike('name', m.name.trim())
+          .limit(1);
+        if (existingName && existingName.length > 0) {
+          isDuplicate = true;
+        }
+      }
+
+      // 3. Check Member Number
+      if (!isDuplicate && cleanMemberNo) {
+        const { data: existingNo } = await supabase
+          .from('members')
+          .select('id')
+          .eq('member_no', cleanMemberNo)
+          .limit(1);
+        if (existingNo && existingNo.length > 0) {
+          isDuplicate = true;
+        }
+      }
+
+      if (isDuplicate) {
+        // DO NOT INSERT, DO NOT UPDATE, DO NOT OVERWRITE
+        skipped++;
+        if (onProgress) onProgress(i + 1, members.length);
+        continue;
+      }
+
+      // Candidate is genuinely new -> insert into database
+      const cleanMember = {
         ...m,
-        member_no: String(m.member_no ?? '').trim() || `AUTO-${Date.now()}-${i}`,
+        member_no: cleanMemberNo || `AUTO-${Date.now()}-${i}`,
         name: String(m.name ?? '').trim(),
         address: String(m.address ?? '').trim() || '',
         email: m.email ? String(m.email).trim() : '',
@@ -208,29 +306,17 @@ export const memberService = {
         nic: String(m.nic ?? '').trim() || '',
         joined_date: m.joined_date || new Date().toISOString().split('T')[0],
         share_amount: Number(m.share_amount) || 0,
-      }));
+      };
 
-      // Fast path: bulk upsert (auto-rename in importEngine ensures no conflicts)
-      const { data, error } = await supabase
-        .from('members')
-        .upsert(cleanBatch, { onConflict: 'member_no', ignoreDuplicates: true })
-        .select('id');
+      const { error } = await supabase.from('members').insert(cleanMember);
 
       if (!error) {
-        imported += (data || []).length;
-        skipped += batch.length - (data || []).length;
+        imported++;
       } else {
-        // Slow fallback: row by row only if bulk fails for unexpected reason
-        for (const member of cleanBatch) {
-          const { error: rowErr } = await supabase
-            .from('members')
-            .upsert(member, { onConflict: 'member_no', ignoreDuplicates: true });
-          if (!rowErr) imported++;
-          else skipped++;
-        }
+        skipped++;
       }
 
-      if (onProgress) onProgress(imported + skipped, members.length);
+      if (onProgress) onProgress(i + 1, members.length);
     }
 
     return { imported, failed: skipped };
