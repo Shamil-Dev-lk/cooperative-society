@@ -13,7 +13,10 @@ const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://msvcwhqvsqtdtw
 const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zdmN3aHF2c3F0ZHR3cWVxdWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MTQyNjEsImV4cCI6MjEwMzk5MDI2MX0.SGClzfh3W8TFiQsE3u6SyB7APF90I6fNYrKTYYPP5TU';
 
 export const authService = {
-  async signIn(email: string, password: string): Promise<AuthUser> {
+  async signIn(rawEmail: string, rawPassword: string): Promise<AuthUser> {
+    const email = rawEmail.trim().toLowerCase();
+    const password = rawPassword.trim();
+
     try {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password });
       if (error) throw error;
@@ -26,37 +29,35 @@ export const authService = {
         role,
       };
     } catch (err: any) {
-      // Fallback: Direct HTTPS fetch if SDK throws network/fetch error
-      if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
-        const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'apiKey': supabaseAnonKey,
-          },
-          body: JSON.stringify({ email, password }),
-        });
+      // Direct HTTPS fetch fallback
+      const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'apiKey': supabaseAnonKey,
+        },
+        body: JSON.stringify({ email, password }),
+      });
 
-        if (!res.ok) {
-          const errorData = await res.json().catch(() => ({}));
-          throw new Error(errorData.error_description || errorData.msg || 'Invalid login credentials');
-        }
-
-        const data = await res.json();
-        if (data.access_token && data.refresh_token) {
-          await supabase.auth.setSession({
-            access_token: data.access_token,
-            refresh_token: data.refresh_token,
-          });
-          const role = (data.user?.user_metadata?.role as UserRole) || 'OPERATOR';
-          return {
-            id: data.user.id,
-            email: data.user.email,
-            role,
-          };
-        }
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}));
+        throw new Error(errorData.error_description || errorData.msg || 'Invalid email or password');
       }
-      throw err;
+
+      const data = await res.json();
+      if (data.access_token && data.refresh_token) {
+        await supabase.auth.setSession({
+          access_token: data.access_token,
+          refresh_token: data.refresh_token,
+        });
+        const role = (data.user?.user_metadata?.role as UserRole) || 'OPERATOR';
+        return {
+          id: data.user.id,
+          email: data.user.email,
+          role,
+        };
+      }
+      throw new Error('Invalid email or password');
     }
   },
 
