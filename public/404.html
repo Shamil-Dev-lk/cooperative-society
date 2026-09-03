@@ -4,21 +4,29 @@
     <meta charset="UTF-8" />
     <title>Cooperative Society</title>
     <script>
-      // Single Page App redirect for GitHub Pages
-      // Redirects direct page requests (e.g. /login or /users) to HashRouter (/#/login)
-      var l = window.location;
-      var path = l.pathname;
-      var search = l.search || '';
-      var hash = l.hash || '';
+      // Universal SPA redirect for GitHub Pages (handles both project site & root domain)
+      (function () {
+        var l = window.location;
+        var path = l.pathname || '';
+        var search = l.search || '';
+        var hash = l.hash || '';
 
-      // Normalize path
-      if (path && path !== '/') {
-        var cleanPath = path.replace(/\/$/, '');
-        var target = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + '/#' + cleanPath + search + hash;
+        var basePath = '';
+        var routePath = path;
+
+        if (path.indexOf('/cooperative-society') === 0) {
+          basePath = '/cooperative-society';
+          routePath = path.replace(/^\/cooperative-society/, '');
+        }
+
+        routePath = routePath.replace(/\/$/, '');
+        if (!routePath || routePath === '/') {
+          routePath = '/dashboard';
+        }
+
+        var target = l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + basePath + '/#' + routePath + search + hash;
         l.replace(target);
-      } else {
-        l.replace(l.protocol + '//' + l.hostname + (l.port ? ':' + l.port : '') + '/#/dashboard');
-      }
+      })();
     </script>
   </head>
   <body></body>
