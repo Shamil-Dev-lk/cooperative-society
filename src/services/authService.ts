@@ -9,18 +9,55 @@ export interface SystemUser {
   last_sign_in_at: string | null;
 }
 
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://msvcwhqvsqtdtwqequkq.supabase.co';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zdmN3aHF2c3F0ZHR3cWVxdWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MTQyNjEsImV4cCI6MjEwMzk5MDI2MX0.SGClzfh3W8TFiQsE3u6SyB7APF90I6fNYrKTYYPP5TU';
+
 export const authService = {
   async signIn(email: string, password: string): Promise<AuthUser> {
-    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-    if (error) throw error;
-    if (!data.user) throw new Error('No user returned');
+    try {
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+      if (error) throw error;
+      if (!data.user) throw new Error('No user returned');
 
-    const role = (data.user.user_metadata?.role as UserRole) || 'OPERATOR';
-    return {
-      id: data.user.id,
-      email: data.user.email!,
-      role,
-    };
+      const role = (data.user.user_metadata?.role as UserRole) || 'OPERATOR';
+      return {
+        id: data.user.id,
+        email: data.user.email!,
+        role,
+      };
+    } catch (err: any) {
+      // Fallback: Direct HTTPS fetch if SDK throws network/fetch error
+      if (err?.message?.includes('Failed to fetch') || err?.name === 'TypeError') {
+        const res = await fetch(`${supabaseUrl}/auth/v1/token?grant_type=password`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'apiKey': supabaseAnonKey,
+          },
+          body: JSON.stringify({ email, password }),
+        });
+
+        if (!res.ok) {
+          const errorData = await res.json().catch(() => ({}));
+          throw new Error(errorData.error_description || errorData.msg || 'Invalid login credentials');
+        }
+
+        const data = await res.json();
+        if (data.access_token && data.refresh_token) {
+          await supabase.auth.setSession({
+            access_token: data.access_token,
+            refresh_token: data.refresh_token,
+          });
+          const role = (data.user?.user_metadata?.role as UserRole) || 'OPERATOR';
+          return {
+            id: data.user.id,
+            email: data.user.email,
+            role,
+          };
+        }
+      }
+      throw err;
+    }
   },
 
   async signOut(): Promise<void> {
@@ -29,15 +66,19 @@ export const authService = {
   },
 
   async getSession(): Promise<AuthUser | null> {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session?.user) return null;
+    try {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user) return null;
 
-    const role = (session.user.user_metadata?.role as UserRole) || 'OPERATOR';
-    return {
-      id: session.user.id,
-      email: session.user.email!,
-      role,
-    };
+      const role = (session.user.user_metadata?.role as UserRole) || 'OPERATOR';
+      return {
+        id: session.user.id,
+        email: session.user.email!,
+        role,
+      };
+    } catch {
+      return null;
+    }
   },
 
   async getAllUsers(): Promise<SystemUser[]> {
@@ -47,13 +88,11 @@ export const authService = {
         return data;
       }
     } catch {
-      // Fall through to query fallbacks
+      // Fall through
     }
 
-    // Fallback: Query user_creation_queue + current user session
     const list: SystemUser[] = [];
 
-    // Current logged in user session
     const { data: { session } } = await supabase.auth.getSession();
     if (session?.user) {
       list.push({
@@ -65,7 +104,6 @@ export const authService = {
       });
     }
 
-    // Fetch queued / created users from user_creation_queue
     const { data: queueData } = await supabase
       .from('user_creation_queue')
       .select('*')
