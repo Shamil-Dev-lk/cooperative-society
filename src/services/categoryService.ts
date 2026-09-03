@@ -3,20 +3,24 @@ import type { Category } from '@/types';
 
 export const categoryService = {
   async getAll(): Promise<Category[]> {
-    const { data, error } = await supabase
-      .from('categories')
-      .select(`
-        *,
-        member_count:members(count)
-      `)
-      .order('category_name');
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select(`
+          *,
+          member_count:members(count)
+        `)
+        .order('category_name');
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return (data || []).map((c: Category & { member_count: { count: number }[] }) => ({
-      ...c,
-      member_count: c.member_count?.[0]?.count ?? 0,
-    }));
+      return (data || []).map((c: Category & { member_count: { count: number }[] }) => ({
+        ...c,
+        member_count: c.member_count?.[0]?.count ?? 0,
+      }));
+    } catch {
+      return [];
+    }
   },
 
   async getById(id: string): Promise<Category> {
@@ -59,13 +63,17 @@ export const categoryService = {
   },
 
   async search(query: string): Promise<Category[]> {
-    const { data, error } = await supabase
-      .from('categories')
-      .select('*')
-      .ilike('category_name', `%${query}%`)
-      .order('category_name');
+    try {
+      const { data, error } = await supabase
+        .from('categories')
+        .select('*')
+        .ilike('category_name', `%${query}%`)
+        .order('category_name');
 
-    if (error) throw error;
-    return (data || []) as Category[];
+      if (error) throw error;
+      return (data || []) as Category[];
+    } catch {
+      return [];
+    }
   },
 };
