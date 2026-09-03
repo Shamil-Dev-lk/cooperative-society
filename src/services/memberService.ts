@@ -117,19 +117,29 @@ export const memberService = {
     const from = (page - 1) * pageSize;
     const to = from + pageSize - 1;
 
-    const { data, error, count } = await query
-      .order('member_no', { ascending: true })
-      .range(from, to);
+    try {
+      const { data, error, count } = await query
+        .order('created_at', { ascending: false })
+        .range(from, to);
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return {
-      data: (data || []) as Member[],
-      count: count || 0,
-      page,
-      pageSize,
-      totalPages: Math.ceil((count || 0) / pageSize),
-    };
+      return {
+        data: (data || []) as Member[],
+        count: count || 0,
+        page,
+        pageSize,
+        totalPages: Math.ceil((count || 0) / pageSize),
+      };
+    } catch {
+      return {
+        data: [],
+        count: 0,
+        page,
+        pageSize,
+        totalPages: 0,
+      };
+    }
   },
 
   async getMemberById(id: string): Promise<Member> {
