@@ -397,40 +397,101 @@ export async function parseFile(
 }
 
 // ============================================================
-// Duplicate detection — auto-renames duplicates so ALL rows import
+// Normalization Helpers for Duplicate Checking
+// ============================================================
+export function normalizeNIC(nic?: string | null): string {
+  if (!nic) return '';
+  return String(nic).trim().toUpperCase().replace(/[\s-]/g, '');
+}
+
+export function normalizeName(name?: string | null): string {
+  if (!name) return '';
+  return String(name)
+    .trim()
+    .toLowerCase()
+    .replace(/\s+/g, ' ')
+    .replace(/^(mr|mrs|ms|dr|prof|rev)\.?\s+/i, '')
+    .replace(/\s+/g, ''); // strip all spaces for strict comparison
+}
+
+export interface ExistingMemberData {
+  existingMemberNos: Set<string>;
+  existingNICs: Set<string>;
+  existingNames: Set<string>;
+}
+
+// ============================================================
+// Duplicate detection — NEVER AUTO-RENAME OR FORCE DUPLICATES
+// Priority 1: NIC
+// Priority 2: Name (if NIC is empty)
+// Priority 3: Member No
+// Checks both DB records and intra-file duplicates
 // ============================================================
 export function applyDuplicateDetection(
   rows: ImportRow[],
-  existingMemberNos: Set<string>
+  dbData: ExistingMemberData
 ): ImportRow[] {
-  // All known member numbers (DB + already seen in this file)
-  const allKnownNos = new Set<string>(existingMemberNos);
+  // Keep track of values seen in DB and earlier rows of this file
+  const seenMemberNos = new Set<string>(dbData.existingMemberNos);
+  const seenNICs = new Set<string>(dbData.existingNICs);
+  const seenNames = new Set<string>(dbData.existingNames);
 
   return rows.map((row) => {
     if (row.status === 'invalid' || !row.parsed) return row;
 
-    let memberNo = row.parsed.member_no;
+    const rawNic = row.parsed.nic;
+    const rawName = row.parsed.name;
+    const rawMemberNo = row.parsed.member_no;
 
-    if (allKnownNos.has(memberNo)) {
-      // Auto-rename: append suffix until unique
-      let suffix = 2;
-      let newNo = `${memberNo}-${suffix}`;
-      while (allKnownNos.has(newNo)) {
-        suffix++;
-        newNo = `${memberNo}-${suffix}`;
+    const nic = normalizeNIC(rawNic);
+    const name = normalizeName(rawName);
+    const memberNo = fixMemberNo(rawMemberNo);
+
+    let isDuplicate = false;
+    let dupReason = 'ALREADY EXISTS';
+
+    // 1. Priority 1: Check NIC (if present)
+    if (nic) {
+      if (seenNICs.has(nic)) {
+        isDuplicate = true;
+        dupReason = 'ALREADY EXISTS (NIC matched)';
       }
-      memberNo = newNo;
-      // Keep as valid with renamed member_no
-      row = {
+    }
+
+    // 2. Priority 2: Check Name (if NIC is empty)
+    if (!isDuplicate && !nic && name) {
+      if (seenNames.has(name)) {
+        isDuplicate = true;
+        dupReason = 'ALREADY EXISTS (Member name matched)';
+      }
+    }
+
+    // 3. Priority 3: Check Member Number
+    if (!isDuplicate && memberNo) {
+      if (seenMemberNos.has(memberNo)) {
+        isDuplicate = true;
+        dupReason = 'ALREADY EXISTS (Member No matched)';
+      }
+    }
+
+    if (isDuplicate) {
+      return {
         ...row,
-        parsed: { ...row.parsed, member_no: memberNo },
-        status: 'valid',
-        errors: [],
+        status: 'duplicate',
+        errors: [dupReason],
       };
     }
 
-    allKnownNos.add(memberNo);
-    return row;
+    // Record seen values for intra-file duplicate checking
+    if (nic) seenNICs.add(nic);
+    if (name) seenNames.add(name);
+    if (memberNo) seenMemberNos.add(memberNo);
+
+    return {
+      ...row,
+      status: 'valid',
+      errors: [],
+    };
   });
 }
 
