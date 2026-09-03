@@ -75,8 +75,8 @@ const ImportMembersPage: React.FC = () => {
     setIsParsing(true);
     try {
       const parsed = await parseFile(file, divisionId, categoryId);
-      const existingNos = await memberService.getAllMemberNos();
-      const withDuplicates = applyDuplicateDetection(parsed, existingNos);
+      const existingData = await memberService.getExistingMembersForCheck();
+      const withDuplicates = applyDuplicateDetection(parsed, existingData);
       setRows(withDuplicates);
       setStep('preview');
     } catch (err: unknown) {
@@ -88,7 +88,7 @@ const ImportMembersPage: React.FC = () => {
   };
 
   // STEP 4 → 5: Import
-  const handleImport = async (includeSkipped = false) => {
+  const handleImport = async () => {
     // UPDATE MODE: update share amounts for existing members
     if (importMode === 'update') {
       const allRows = rows.filter((r) => r.parsed?.member_no && r.parsed?.share_amount !== undefined);
@@ -111,26 +111,20 @@ const ImportMembersPage: React.FC = () => {
       return;
     }
 
-    // INSERT MODE
-    let rowsToImport = rows.filter((r) => r.status === 'valid' && r.parsed);
+    // INSERT MODE — import ONLY genuinely valid new records
+    const rowsToImport = rows.filter((r) => r.status === 'valid' && r.parsed);
 
-    if (includeSkipped) {
-      // Also import duplicate rows — rename their member_no to avoid conflicts
-      const dupRows = rows.filter((r) => r.status === 'duplicate' && r.parsed);
-      const usedNos = new Set(rowsToImport.map((r) => r.parsed!.member_no));
-      let suffix = 1;
-      for (const row of dupRows) {
-        let newNo = row.parsed!.member_no;
-        while (usedNos.has(newNo)) {
-          newNo = `${row.parsed!.member_no}-${suffix++}`;
-        }
-        usedNos.add(newNo);
-        rowsToImport.push({ ...row, parsed: { ...row.parsed!, member_no: newNo } });
-      }
-    }
-
+    // IF ALL MEMBERS ALREADY EXIST:
     if (rowsToImport.length === 0) {
-      toast.error('No rows to import');
+      toast.error("All members already exist. Nothing new to import.");
+      setSummary({
+        totalRows: rows.length,
+        imported: 0,
+        duplicates: rows.filter((r) => r.status === 'duplicate').length,
+        failed: rows.filter((r) => r.status === 'invalid').length,
+        durationMs: 0,
+      });
+      setStep('summary');
       return;
     }
 
@@ -142,7 +136,7 @@ const ImportMembersPage: React.FC = () => {
 
     const { imported, failed } = await memberService.batchInsert(
       members,
-      1000,
+      100,
       (done, total) => {
         setProgress(Math.round((done / total) * 100));
         setProgressCount({ done, total });
@@ -156,7 +150,7 @@ const ImportMembersPage: React.FC = () => {
     setSummary({
       totalRows: rows.length,
       imported,
-      duplicates: includeSkipped ? 0 : duplicates,
+      duplicates,
       failed: failed + invalid,
       durationMs,
     });
@@ -166,7 +160,11 @@ const ImportMembersPage: React.FC = () => {
 
     setIsImporting(false);
     setStep('summary');
-    toast.success(`Imported ${imported} members successfully!`);
+    if (imported > 0) {
+      toast.success(`Imported ${imported} new members successfully! (${duplicates} skipped)`);
+    } else {
+      toast.error("All members already exist. Nothing new to import.");
+    }
   };
 
 
@@ -560,28 +558,22 @@ const ImportMembersPage: React.FC = () => {
               </div>
 
               {validCount === 0 && (
-                <div className="mt-4 p-4 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-                  No valid rows found. Please check your file format and column mappings.
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 font-semibold flex items-center gap-2">
+                  <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                  <span>All members already exist. Nothing new to import.</span>
                 </div>
               )}
 
-              {/* Duplicate warning with Force Import option */}
-              {dupCount > 0 && (
+              {/* Duplicate notice */}
+              {dupCount > 0 && validCount > 0 && (
                 <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <p className="text-sm font-semibold text-amber-800 mb-1">
-                    ⚠️ {formatNumber(dupCount)} rows detected as duplicates
+                    ⚠️ {formatNumber(dupCount)} rows detected as duplicates (Already Exists)
                   </p>
-                  <p className="text-xs text-amber-700 mb-3">
-                    These may be members that already exist in the database, or have duplicate member numbers within the file.
-                    You can either skip them (default) or <strong>Force Import All</strong> — duplicates will get a new unique member number automatically.
+                  <p className="text-xs text-amber-700">
+                    These members already exist in the database or appear multiple times in the file.
+                    They will be automatically skipped to prevent duplicate database records.
                   </p>
-                  <button
-                    onClick={() => handleImport(true)}
-                    className="flex items-center gap-2 bg-amber-500 hover:bg-amber-600 text-white
-                      px-4 py-2 rounded-xl text-sm font-semibold transition-colors"
-                  >
-                    ⚡ Force Import All {formatNumber(validCount + dupCount)} Records
-                  </button>
                 </div>
               )}
 
@@ -595,11 +587,11 @@ const ImportMembersPage: React.FC = () => {
                 </button>
                 <button
                   disabled={validCount === 0}
-                  onClick={() => handleImport(false)}
+                  onClick={handleImport}
                   className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
                     px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-40 transition-all"
                 >
-                  Import {formatNumber(validCount)} Valid Records <ChevronRight size={16} />
+                  Import {formatNumber(validCount)} New Members <ChevronRight size={16} />
                 </button>
               </div>
             </div>
@@ -640,9 +632,19 @@ const ImportMembersPage: React.FC = () => {
           {step === 'summary' && summary && (
             <div>
               <div className="text-center mb-6">
-                <CheckCircle2 size={48} className="text-emerald-500 mx-auto mb-3" />
-                <h2 className="text-xl font-bold text-text dark:text-text-dark">Import Complete!</h2>
-                <p className="text-sm text-gray-400 mt-1">ආනයනය සාර්ථකව සම්පූර්ණ විය</p>
+                {summary.imported > 0 ? (
+                  <>
+                    <CheckCircle2 size={48} className="text-emerald-500 mx-auto mb-3" />
+                    <h2 className="text-xl font-bold text-text dark:text-text-dark">Import Complete!</h2>
+                    <p className="text-sm text-gray-400 mt-1">{summary.imported} new members added successfully ({summary.duplicates} duplicates skipped)</p>
+                  </>
+                ) : (
+                  <>
+                    <AlertTriangle size={48} className="text-amber-500 mx-auto mb-3" />
+                    <h2 className="text-xl font-bold text-amber-600 dark:text-amber-400">All members already exist. Nothing new to import.</h2>
+                    <p className="text-sm text-gray-400 mt-1">සියලුම සාමාජිකයන් දැනටමත් පවතී. අලුතින් එක් කිරීමට කිසිවක් නැත.</p>
+                  </>
+                )}
               </div>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 mb-6">
