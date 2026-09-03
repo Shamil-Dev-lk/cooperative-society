@@ -3,20 +3,24 @@ import type { ElectoralDivision } from '@/types';
 
 export const divisionService = {
   async getAll(): Promise<ElectoralDivision[]> {
-    const { data, error } = await supabase
-      .from('electoral_divisions')
-      .select(`
-        *,
-        member_count:members(count)
-      `)
-      .order('division_name');
+    try {
+      const { data, error } = await supabase
+        .from('electoral_divisions')
+        .select(`
+          *,
+          member_count:members(count)
+        `)
+        .order('division_name');
 
-    if (error) throw error;
+      if (error) throw error;
 
-    return (data || []).map((d: ElectoralDivision & { member_count: { count: number }[] }) => ({
-      ...d,
-      member_count: d.member_count?.[0]?.count ?? 0,
-    }));
+      return (data || []).map((d: ElectoralDivision & { member_count: { count: number }[] }) => ({
+        ...d,
+        member_count: d.member_count?.[0]?.count ?? 0,
+      }));
+    } catch {
+      return [];
+    }
   },
 
   async getById(id: string): Promise<ElectoralDivision> {
