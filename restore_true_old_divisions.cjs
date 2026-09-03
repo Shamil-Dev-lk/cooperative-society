@@ -1,0 +1,42 @@
+const { createClient } = require('@supabase/supabase-js');
+
+const supabaseUrl = 'https://msvcwhqvsqtdtwqequkq.supabase.co';
+const serviceKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zdmN3aHF2c3F0ZHR3cWVxdWtxIiwicm9sZSI6InNlcnZpY2Vfcm9sZSIsImlhdCI6MTc4ODQxNDI2MSwiZXhwIjoyMTAzOTkwMjYxfQ.1UeK3NaD7q92lXTRSW2qtORjSx8GYQgOSnZdHk57uZg';
+
+const supabase = createClient(supabaseUrl, serviceKey);
+
+const trueOldDivisions = [
+  { id: "eb6b1039-082d-4588-a735-ca959245248d", name: "01 නිකවැරටිය - උතුර" },
+  { id: "e86dc7db-98ea-490f-a440-8978e75a0a3e", name: "02 කටගමුව" },
+  { id: "7de6da7b-2124-47d4-b0f0-3956b0c37a6b", name: "04 දණ්ඩුවාව" },
+  { id: "ecaf0eb1-b085-42f8-862e-54fddd76a641", name: "05 හීලෝගම" },
+  { id: "8fe51dae-4227-4765-92f9-8a2e3998a497", name: "06 කිවුලේගම" },
+  { id: "0cad6b7b-5fef-4900-932a-a906f80cf0b7", name: "07 රස්නායකපුර" },
+  { id: "0ed918ba-b4e6-4a7e-8d78-9486deb7de1c", name: "08 මොන්නෑකුලම" },
+  { id: "6d746ac5-62f2-4e7d-86c5-0ce2baa659e2", name: "09 තඹරොඹුව" },
+  { id: "540e3bc7-68c0-4a26-bbed-89397cb89483", name: "10 මීවැල්ලෑව" },
+  { id: "ee151fa0-2811-44fa-bdcf-aad6f5ca3331", name: "11 ගිරිල්ල" },
+  { id: "12514d8b-05dc-408b-a1c5-08f793409e99", name: "12 මහකිරින්ද" },
+  { id: "d0ca3bd3-04fc-429c-889d-c21fee10a63b", name: "14 වම්බටුවැව" },
+  { id: "dd3e845e-c502-4bc6-b401-baab0dc24c95", name: "15 පින්නපොලේගම" },
+  { id: "0ef91ae2-5165-4c22-ac08-d20d0df1b135", name: "16 කඩිගාව" },
+  { id: "09383267-d569-4900-8413-121e8b13f17c", name: "17 එළගම්මිල්ලව" },
+  { id: "30a6a3da-5127-47f8-a92b-4e42d14732e3", name: "18 නාවාන තිඹිරියාව" },
+  { id: "df12b02e-c973-4578-ae02-56997a49eb04", name: "19 දළුක්ගොල්ල" },
+  { id: "d14d2380-60cf-4a8b-82e4-9943133c202b", name: "21 කැබැල්ලෑව" },
+  { id: "8d23a4e7-2445-48bd-866d-64d645ac6e3e", name: "22 තඹරොඹුව (22)" },
+  { id: "f003fe3b-b820-4b95-b3ce-b191cccfcfb2", name: "28 නිකවැරටිය - දකුණ" },
+  { id: "828379b4-8af7-439b-9778-8384bf0d521a", name: "29 නීරාලියද්ද" },
+  { id: "6d605efe-fb82-44b0-aa5d-636962cb2645", name: "30 මහමිතව" }
+];
+
+async function run() {
+  console.log('=== Restoring TRUE Original Divisions from MySQL database.sql ===');
+  for (const item of trueOldDivisions) {
+    await supabase.from('electoral_divisions').update({ division_name: item.name }).eq('id', item.id);
+    console.log(`Updated Division: ${item.name}`);
+  }
+  console.log('🎉 True Original Division Names Restored Successfully!');
+}
+
+run();
