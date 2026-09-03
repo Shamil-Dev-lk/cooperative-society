@@ -1,9 +1,8 @@
 import { createClient } from '@supabase/supabase-js';
 
-// Credentials — anon key is safe to expose (designed for client-side use)
-const supabaseUrl = 'https://qnzkownqbkhifenzsgxf.supabase.co';
+const supabaseUrl = import.meta.env.VITE_SUPABASE_URL || 'https://msvcwhqvsqtdtwqequkq.supabase.co';
 
-const supabaseAnonKey = 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InFuemtvd25xYmtoaWZlbnpzZ3hmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODExNjUxMzgsImV4cCI6MjA5Njc0MTEzOH0.dphxn5visOA3jxbkLqRb5wEL7JXmTvqI2gzHVtFrGFM';
+const supabaseAnonKey = import.meta.env.VITE_SUPABASE_ANON_KEY || 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Im1zdmN3aHF2c3F0ZHR3cWVxdWtxIiwicm9sZSI6ImFub24iLCJpYXQiOjE3ODg0MTQyNjEsImV4cCI6MjEwMzk5MDI2MX0.SGClzfh3W8TFiQsE3u6SyB7APF90I6fNYrKTYYPP5TU';
 
 export const supabase = createClient(supabaseUrl, supabaseAnonKey, {
   auth: {
