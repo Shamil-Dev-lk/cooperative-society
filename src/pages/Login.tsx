@@ -27,8 +27,11 @@ const LoginPage: React.FC = () => {
       toast.success(`Welcome back! / ආයුබෝවන්!`);
       navigate('/dashboard');
     } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Login failed';
-      toast.error(message);
+      const rawMsg = err instanceof Error ? err.message : String(err);
+      const cleanMsg = (rawMsg.includes('Failed to fetch') || rawMsg.includes('TypeError') || rawMsg.includes('NetworkError'))
+        ? 'Invalid email or password. Please check your credentials.'
+        : rawMsg;
+      toast.error(cleanMsg);
     } finally {
       setIsLoading(false);
     }
