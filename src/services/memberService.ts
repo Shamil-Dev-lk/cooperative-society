@@ -1,5 +1,6 @@
 import { supabase } from './supabaseClient';
 import type { Member, MemberFilters, PaginatedResult } from '@/types';
+import { sanitizePostgresDate } from './importEngine';
 
 function parseDateSearch(search: string): string[] {
   const clean = search.trim();
@@ -247,18 +248,25 @@ export const memberService = {
     let imported = 0;
     let failed = 0;
 
-    const formattedMembers = members.map((m, idx) => ({
-      member_no: String(m.member_no ?? '').trim() || `AUTO-${Date.now()}-${idx}`,
-      name: String(m.name ?? '').trim(),
-      address: String(m.address ?? '').trim() || '',
-      email: m.email ? String(m.email).trim() : '',
-      phone: m.phone ? String(m.phone).trim() : '',
-      nic: String(m.nic ?? '').trim() || '',
-      joined_date: m.joined_date || new Date().toISOString().split('T')[0],
-      share_amount: Number(m.share_amount) || 0,
-      electoral_division_id: m.electoral_division_id,
-      category_id: m.category_id,
-    }));
+    const supportsContact = await checkContactColumns();
+
+    const formattedMembers = members.map((m, idx) => {
+      const baseObj: Record<string, any> = {
+        member_no: String(m.member_no ?? '').trim() || `AUTO-${Date.now()}-${idx}`,
+        name: String(m.name ?? '').trim(),
+        address: String(m.address ?? '').trim() || '',
+        nic: String(m.nic ?? '').trim() || '',
+        joined_date: sanitizePostgresDate(m.joined_date),
+        share_amount: Number(m.share_amount) || 0,
+        electoral_division_id: m.electoral_division_id,
+        category_id: m.category_id,
+      };
+      if (supportsContact) {
+        if (m.email) baseObj.email = String(m.email).trim();
+        if (m.phone) baseObj.phone = String(m.phone).trim();
+      }
+      return baseObj;
+    });
 
     const chunks: typeof formattedMembers[] = [];
     for (let i = 0; i < formattedMembers.length; i += batchSize) {
@@ -333,13 +341,26 @@ export const memberService = {
   ): Promise<{ updated: number; failed: number }> {
     let updated = 0;
     let failed = 0;
-    const formatted = members.map((m) => ({
-      ...m,
-      member_no: String(m.member_no ?? '').trim(),
-      email: m.email ? String(m.email).trim() : '',
-      phone: m.phone ? String(m.phone).trim() : '',
-      share_amount: Number(m.share_amount) || 0,
-    }));
+
+    const supportsContact = await checkContactColumns();
+
+    const formatted = members.map((m) => {
+      const baseObj: Record<string, any> = {
+        member_no: String(m.member_no ?? '').trim(),
+        name: String(m.name ?? '').trim(),
+        address: String(m.address ?? '').trim() || '',
+        nic: String(m.nic ?? '').trim() || '',
+        joined_date: sanitizePostgresDate(m.joined_date),
+        share_amount: Number(m.share_amount) || 0,
+        electoral_division_id: m.electoral_division_id,
+        category_id: m.category_id,
+      };
+      if (supportsContact) {
+        if (m.email) baseObj.email = String(m.email).trim();
+        if (m.phone) baseObj.phone = String(m.phone).trim();
+      }
+      return baseObj;
+    });
 
     const chunks: typeof formatted[] = [];
     for (let i = 0; i < formatted.length; i += batchSize) {

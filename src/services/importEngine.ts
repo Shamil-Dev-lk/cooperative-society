@@ -127,16 +127,25 @@ function fixShareAmount(raw: string | number): number {
   return isNaN(num) ? 0 : num;
 }
 
-function fixExcelDate(val: string | number): string {
-  const strVal = String(val ?? '').trim();
-
-  if (/\d{4}-\d{2}-\d{2}/.test(strVal)) return strVal;
-  if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(strVal)) {
-    const norm = normalizeDate(strVal);
-    if (norm) return norm;
+export function sanitizePostgresDate(val?: string | number | null): string {
+  const fallback = new Date().toISOString().split('T')[0];
+  if (!val) return fallback;
+  const s = String(val).trim().replace(/\./g, '-');
+  const match = s.match(/(\d{4})[-/](\d{1,2})[-/](\d{1,2})/);
+  if (match) {
+    let y = parseInt(match[1], 10);
+    let m = parseInt(match[2], 10);
+    let d = parseInt(match[3], 10);
+    if (isNaN(y) || y < 1900 || y > 2100) y = 2024;
+    if (isNaN(m) || m < 1) m = 1; if (m > 12) m = 12;
+    const maxDays = new Date(y, m, 0).getDate();
+    if (isNaN(d) || d < 1) d = 1; if (d > maxDays) d = maxDays;
+    const mm = String(m).padStart(2, '0');
+    const dd = String(d).padStart(2, '0');
+    return `${y}-${mm}-${dd}`;
   }
 
-  const num = parseFloat(strVal);
+  const num = parseFloat(s);
   if (!isNaN(num) && num > 25569 && num < 60000) {
     const date = new Date((num - 25569) * 86400 * 1000);
     const yyyy = date.getUTCFullYear();
@@ -145,8 +154,11 @@ function fixExcelDate(val: string | number): string {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  const norm = normalizeDate(strVal);
-  return norm || new Date().toISOString().split('T')[0];
+  return fallback;
+}
+
+function fixExcelDate(val: string | number): string {
+  return sanitizePostgresDate(val);
 }
 
 function parseRawRow(
