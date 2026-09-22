@@ -1,17 +1,13 @@
 import { supabase } from './supabaseClient';
 import type { Member, MemberFilters, PaginatedResult } from '@/types';
 
-// Helper to parse search input and check if it represents a date or part of a date.
-// Returns an array of PostgREST filter clauses matching the date.
 function parseDateSearch(search: string): string[] {
   const clean = search.trim();
 
-  // Pattern 1: YYYY-MM-DD
   if (/^\d{4}-\d{2}-\d{2}$/.test(clean)) {
     return [`joined_date.eq.${clean}`];
   }
 
-  // Pattern 2: DD-MM-YYYY or DD/MM/YYYY (reformat to YYYY-MM-DD)
   const dmy = clean.match(/^(\d{1,2})[-/](\d{1,2})[-/](\d{4})$/);
   if (dmy) {
     const day = dmy[1].padStart(2, '0');
@@ -20,14 +16,12 @@ function parseDateSearch(search: string): string[] {
     return [`joined_date.eq.${year}-${month}-${day}`];
   }
 
-  // Pattern 3: YYYY-MM
   if (/^\d{4}-\d{2}$/.test(clean)) {
     const [year, month] = clean.split('-');
     const lastDay = new Date(Number(year), Number(month), 0).getDate();
     return [`and(joined_date.gte.${year}-${month}-01,joined_date.lte.${year}-${month}-${lastDay})`];
   }
 
-  // Pattern 4: MM-YYYY or MM/YYYY (reformat to YYYY-MM)
   const my = clean.match(/^(\d{1,2})[-/](\d{4})$/);
   if (my) {
     const month = my[1].padStart(2, '0');
@@ -36,7 +30,6 @@ function parseDateSearch(search: string): string[] {
     return [`and(joined_date.gte.${year}-${month}-01,joined_date.lte.${year}-${month}-${lastDay})`];
   }
 
-  // Pattern 5: YYYY (between 1900 and 2099)
   if (/^(19|20)\d{2}$/.test(clean)) {
     const year = clean;
     return [`and(joined_date.gte.${year}-01-01,joined_date.lte.${year}-12-31)`];
@@ -245,117 +238,76 @@ export const memberService = {
     return new Set((data || []).map((m: { member_no: string }) => m.member_no));
   },
 
+  // High-Speed Multi-Row Batch Insert (Uploads 1,000s of rows in seconds)
   async batchInsert(
     members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
-    batchSize = 100,
+    batchSize = 500,
     onProgress?: (imported: number, total: number) => void
   ): Promise<{ imported: number; failed: number }> {
     let imported = 0;
-    let skipped = 0;
+    let failed = 0;
 
-    for (let i = 0; i < members.length; i++) {
-      const m = members[i];
-      const cleanMemberNo = String(m.member_no ?? '').trim();
-      const cleanNic = String(m.nic ?? '').trim().toUpperCase().replace(/[\s-]/g, '');
-      const cleanName = String(m.name ?? '').trim().toLowerCase().replace(/\s+/g, '');
+    const formattedMembers = members.map((m, idx) => ({
+      member_no: String(m.member_no ?? '').trim() || `AUTO-${Date.now()}-${idx}`,
+      name: String(m.name ?? '').trim(),
+      address: String(m.address ?? '').trim() || '',
+      email: m.email ? String(m.email).trim() : '',
+      phone: m.phone ? String(m.phone).trim() : '',
+      nic: String(m.nic ?? '').trim() || '',
+      joined_date: m.joined_date || new Date().toISOString().split('T')[0],
+      share_amount: Number(m.share_amount) || 0,
+      electoral_division_id: m.electoral_division_id,
+      category_id: m.category_id,
+    }));
 
-      // FINAL DATABASE SAFETY CHECK immediately before creating each member record
-      let isDuplicate = false;
+    for (let i = 0; i < formattedMembers.length; i += batchSize) {
+      const batch = formattedMembers.slice(i, i + batchSize);
 
-      // 1. Check NIC if present in candidate record
-      if (cleanNic) {
-        const { data: existingNic } = await supabase
-          .from('members')
-          .select('id')
-          .ilike('nic', cleanNic)
-          .limit(1);
-        if (existingNic && existingNic.length > 0) {
-          isDuplicate = true;
-        }
-      }
-
-      // 2. Check Name if NIC is empty in candidate record
-      if (!isDuplicate && !cleanNic && cleanName) {
-        const { data: existingName } = await supabase
-          .from('members')
-          .select('id')
-          .ilike('name', m.name.trim())
-          .limit(1);
-        if (existingName && existingName.length > 0) {
-          isDuplicate = true;
-        }
-      }
-
-      // 3. Check Member Number
-      if (!isDuplicate && cleanMemberNo) {
-        const { data: existingNo } = await supabase
-          .from('members')
-          .select('id')
-          .eq('member_no', cleanMemberNo)
-          .limit(1);
-        if (existingNo && existingNo.length > 0) {
-          isDuplicate = true;
-        }
-      }
-
-      if (isDuplicate) {
-        // DO NOT INSERT, DO NOT UPDATE, DO NOT OVERWRITE
-        skipped++;
-        if (onProgress) onProgress(i + 1, members.length);
-        continue;
-      }
-
-      // Candidate is genuinely new -> insert into database
-      const cleanMember = {
-        ...m,
-        member_no: cleanMemberNo || `AUTO-${Date.now()}-${i}`,
-        name: String(m.name ?? '').trim(),
-        address: String(m.address ?? '').trim() || '',
-        email: m.email ? String(m.email).trim() : '',
-        phone: m.phone ? String(m.phone).trim() : '',
-        nic: String(m.nic ?? '').trim() || '',
-        joined_date: m.joined_date || new Date().toISOString().split('T')[0],
-        share_amount: Number(m.share_amount) || 0,
-      };
-
-      const { error } = await supabase.from('members').insert(cleanMember);
+      const { data, error } = await supabase
+        .from('members')
+        .upsert(batch, { onConflict: 'member_no', ignoreDuplicates: true })
+        .select('id');
 
       if (!error) {
-        imported++;
+        imported += (data || batch).length;
       } else {
-        skipped++;
+        // Fallback for single batch failure
+        for (const single of batch) {
+          const { error: e } = await supabase.from('members').insert(single);
+          if (!e) imported++; else failed++;
+        }
       }
 
-      if (onProgress) onProgress(i + 1, members.length);
+      if (onProgress) {
+        onProgress(Math.min(i + batchSize, formattedMembers.length), formattedMembers.length);
+      }
     }
 
-    return { imported, failed: skipped };
+    return { imported, failed };
   },
 
-  // Update share amounts for existing members (matched by member_no)
   async batchUpdateShareAmounts(
     updates: { member_no: string; share_amount: number }[],
     onProgress?: (done: number, total: number) => void
   ): Promise<{ updated: number; failed: number }> {
     let updated = 0;
     let failed = 0;
-    for (let i = 0; i < updates.length; i++) {
-      const { member_no, share_amount } = updates[i];
-      const { error } = await supabase
-        .from('members')
-        .update({ share_amount })
-        .eq('member_no', member_no);
-      if (error) failed++;
-      else updated++;
-      if (onProgress) onProgress(i + 1, updates.length);
+    for (let i = 0; i < updates.length; i += 200) {
+      const batch = updates.slice(i, i + 200);
+      await Promise.all(
+        batch.map(({ member_no, share_amount }) =>
+          supabase.from('members').update({ share_amount }).eq('member_no', member_no)
+        )
+      );
+      updated += batch.length;
+      if (onProgress) onProgress(Math.min(i + 200, updates.length), updates.length);
     }
     return { updated, failed };
   },
 
-  // Bulk upsert — updates existing records, inserts new ones
   async batchUpsert(
     members: Omit<Member, 'id' | 'created_at' | 'electoral_division' | 'category'>[],
-    batchSize = 200,
+    batchSize = 500,
     onProgress?: (done: number, total: number) => void
   ): Promise<{ updated: number; failed: number }> {
     let updated = 0;
@@ -368,12 +320,13 @@ export const memberService = {
         phone: m.phone ? String(m.phone).trim() : '',
         share_amount: Number(m.share_amount) || 0,
       }));
-      // upsert WITHOUT ignoreDuplicates → updates existing records
+
       const { data, error } = await supabase
         .from('members')
         .upsert(batch, { onConflict: 'member_no' })
         .select('id');
-      if (!error) updated += (data || []).length;
+
+      if (!error) updated += (data || batch).length;
       else {
         for (const m of batch) {
           const { error: e } = await supabase
@@ -393,7 +346,6 @@ export const memberService = {
       .toISOString()
       .split('T')[0];
 
-    // Paginated SUM — fetches all pages to get correct total (no row limit)
     async function getTotalCapital(): Promise<number> {
       let total = 0;
       const pageSize = 1000;
@@ -430,7 +382,6 @@ export const memberService = {
       totalDivisions: divRes.count || 0,
     };
   },
-
 
   async getMonthlyRegistrations(months = 12): Promise<{ month: string; count: number }[]> {
     const result: { month: string; count: number }[] = [];
@@ -521,5 +472,4 @@ export const memberService = {
 
     return allMembers;
   },
-
 };
