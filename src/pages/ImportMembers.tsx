@@ -684,6 +684,12 @@ const ImportMembersPage: React.FC = () => {
                     <h2 className="text-xl font-bold text-text dark:text-text-dark">Import Complete!</h2>
                     <p className="text-sm text-gray-400 mt-1">{summary.imported} new members added successfully ({summary.duplicates} duplicates skipped)</p>
                   </>
+                ) : summary.failed > 0 && summary.duplicates === 0 ? (
+                  <>
+                    <XCircle size={48} className="text-red-500 mx-auto mb-3" />
+                    <h2 className="text-xl font-bold text-red-600 dark:text-red-400">Import Failed ({summary.failed} records failed)</h2>
+                    <p className="text-sm text-gray-400 mt-1">ආනයනය අසාර්ථක විය. කරුණාකර නැවත උත්සාහ කරන්න.</p>
+                  </>
                 ) : (
                   <>
                     <AlertTriangle size={48} className="text-amber-500 mx-auto mb-3" />
