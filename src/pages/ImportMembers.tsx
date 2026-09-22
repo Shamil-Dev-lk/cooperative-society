@@ -329,7 +329,7 @@ const ImportMembersPage: React.FC = () => {
               </div>
               <div
                 {...getRootProps()}
-                className={`border-2 border-dashed rounded-2xl p-12 text-center cursor-pointer transition-all duration-200
+                className={`border-2 border-dashed rounded-2xl p-6 sm:p-12 text-center cursor-pointer transition-all duration-200
                   ${isDragActive ? 'border-primary bg-red-50' : 'border-gray-200 hover:border-primary hover:bg-red-50/30'}`}
               >
                 <input {...getInputProps()} />
