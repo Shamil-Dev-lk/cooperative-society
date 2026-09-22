@@ -57,6 +57,7 @@ const ImportMembersPage: React.FC = () => {
       'text/csv': ['.csv'],
       'application/vnd.ms-excel': ['.xls'],
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet': ['.xlsx'],
+      'application/pdf': ['.pdf'],
     },
     maxFiles: 1,
     onDrop: useCallback((accepted: File[]) => {
@@ -167,7 +168,6 @@ const ImportMembersPage: React.FC = () => {
     }
   };
 
-
   const handleReset = () => {
     setFile(null);
     setDivisionId('');
@@ -187,7 +187,7 @@ const ImportMembersPage: React.FC = () => {
       {/* Header */}
       <div>
         <h1 className="text-2xl font-bold text-text dark:text-text-dark">Import Members</h1>
-        <p className="text-sm text-gray-400 mt-1">සාමාජිකයන් ආනයනය කරන්න — CSV, XLS, XLSX supported</p>
+        <p className="text-sm text-gray-400 mt-1">සාමාජිකයන් ආනයනය කරන්න — CSV, XLS, XLSX, PDF supported</p>
       </div>
 
       {/* Step indicator */}
@@ -233,7 +233,7 @@ const ImportMembersPage: React.FC = () => {
             <div>
               <h2 className="text-lg font-semibold text-text dark:text-text-dark mb-2">Upload File</h2>
               <p className="text-sm text-gray-400 mb-5">
-                Supports <strong>CSV, XLS, XLSX</strong> — up to <strong>5,000 members</strong> per import.
+                Supports <strong>CSV, XLS, XLSX, PDF</strong> — up to <strong>5,000 members</strong> per import.
               </p>
 
               {/* Mode Selector */}
@@ -249,7 +249,7 @@ const ImportMembersPage: React.FC = () => {
                   <p className={`text-sm font-bold mb-1 ${importMode === 'insert' ? 'text-primary' : 'text-gray-700'}`}>
                     ➕ Add New Members
                   </p>
-                  <p className="text-xs text-gray-500">Import new members from Excel into the database</p>
+                  <p className="text-xs text-gray-500">Import new members from file into the database</p>
                 </button>
                 <button
                   onClick={() => setImportMode('update')}
@@ -317,7 +317,7 @@ const ImportMembersPage: React.FC = () => {
                     <p className="font-semibold text-gray-600 mb-1">
                       {isDragActive ? 'Drop file here' : 'Drag & drop or click to upload'}
                     </p>
-                    <p className="text-sm text-gray-400">CSV, XLS, XLSX — Max 50MB</p>
+                    <p className="text-sm text-gray-400">CSV, XLS, XLSX, PDF — Max 50MB</p>
                   </div>
                 )}
               </div>
@@ -328,9 +328,11 @@ const ImportMembersPage: React.FC = () => {
                   <div>
                     <p className="text-sm font-medium text-blue-800">File ready: <strong>{file.name}</strong></p>
                     <p className="text-xs text-blue-600 mt-1">
-                      {file.name.endsWith('.csv')
+                      {file.name.endsWith('.pdf')
+                        ? 'PDF: Automatically extracts tables and member rows / PDF: වගු සහ සාමාජික පේළි ස්වයංක්‍රීයව හඳුනා ගනී'
+                        : file.name.endsWith('.csv')
                         ? 'CSV: Automatically detects headers and parses data / CSV: තීරු ශීර්ෂ ස්වයංක්‍රීයව හඳුනාගෙන දත්ත ලබා ගනී'
-                        : 'Excel: Automatically detects header row (scans first 15 rows) and parses data / Excel: තීරු ශීර්ෂ පේළිය ස්වයංක්‍රීයව හඳුනාගෙන (පළමු පේළි 15 පරිලෝකනය කරයි) දත්ත ලබා ගනී'}
+                        : 'Excel: Automatically detects header row (scans first 15 rows) and parses data / Excel: තීරු ශීර්ෂ පේළිය ස්වයංක්‍රීයව හඳුනාගෙන දත්ත ලබා ගනී'}
                     </p>
                   </div>
                 </div>
@@ -437,7 +439,6 @@ const ImportMembersPage: React.FC = () => {
             <div>
               <h2 className="text-lg font-semibold text-text dark:text-text-dark mb-2">Preview Data</h2>
 
-              {/* Stats */}
               <div className="grid grid-cols-3 gap-3 mb-5">
                 <div className="bg-emerald-50 rounded-xl p-4 text-center">
                   <p className="text-2xl font-bold text-emerald-600">{formatNumber(validCount)}</p>
@@ -453,7 +454,6 @@ const ImportMembersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Table Preview */}
               <div className="overflow-x-auto max-h-96 rounded-xl border border-gray-100">
                 <table className="w-full text-xs">
                   <thead className="bg-gray-50 sticky top-0">
@@ -564,7 +564,6 @@ const ImportMembersPage: React.FC = () => {
                 </div>
               )}
 
-              {/* Duplicate notice */}
               {dupCount > 0 && validCount > 0 && (
                 <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
                   <p className="text-sm font-semibold text-amber-800 mb-1">
@@ -596,7 +595,6 @@ const ImportMembersPage: React.FC = () => {
               </div>
             </div>
           )}
-
 
           {/* STEP 5: Importing */}
           {step === 'import' && (
@@ -672,7 +670,6 @@ const ImportMembersPage: React.FC = () => {
                 </div>
               </div>
 
-              {/* Progress bar showing success rate */}
               <div className="mb-6">
                 <div className="flex justify-between text-xs text-gray-500 mb-1">
                   <span>Success Rate</span>
@@ -695,7 +692,7 @@ const ImportMembersPage: React.FC = () => {
                   Import Another File
                 </button>
                 <a
-                  href="/cooperative-society/members"
+                  href="/cooperative-society/#/members"
                   className="flex-1 bg-primary hover:bg-primary-hover text-white px-5 py-3 rounded-xl
                     text-sm font-medium text-center transition-all"
                 >

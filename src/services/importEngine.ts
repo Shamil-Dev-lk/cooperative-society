@@ -1,7 +1,13 @@
 import Papa from 'papaparse';
 import * as XLSX from 'xlsx';
+import * as pdfjsLib from 'pdfjs-dist';
 import type { RawImportRow, ImportRow, ParsedMember } from '@/types';
 import { normalizeDate } from '@/utils/dateUtils';
+
+// Configure PDF.js worker
+if (typeof window !== 'undefined') {
+  pdfjsLib.GlobalWorkerOptions.workerSrc = `https://cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+}
 
 // ============================================================
 // Column name mapping (Sinhala + English)
@@ -99,10 +105,6 @@ function isHeaderRow(row: (string | number)[]): boolean {
   return matches >= 2;
 }
 
-// ============================================================
-// Fix Excel number formatting issues
-// e.g. "1.0" → "1",  "001.0" → "001"
-// ============================================================
 function fixMemberNo(raw: string): string {
   const s = raw.trim();
   if (!s) return '';
@@ -110,15 +112,10 @@ function fixMemberNo(raw: string): string {
   return s;
 }
 
-// ============================================================
-// Fix share amount — strip currency symbols and parse number
-// Handles: "Rs. 5,000", "LKR 5000", "රු. 5,000", "5,000.00", "5000"
-// ============================================================
 function fixShareAmount(raw: string | number): number {
   if (typeof raw === 'number') return isNaN(raw) ? 0 : raw;
   const s = String(raw ?? '').trim();
   if (!s) return 0;
-  // Strip currency symbols, Sinhala රු., Rs., LKR, spaces
   const cleaned = s
     .replace(/රු\.?/g, '')
     .replace(/Rs\.?/gi, '')
@@ -130,24 +127,17 @@ function fixShareAmount(raw: string | number): number {
   return isNaN(num) ? 0 : num;
 }
 
-// ============================================================
-// Fix Excel date serial numbers
-// Excel stores dates as number of days since 1900-01-01
-// ============================================================
 function fixExcelDate(val: string | number): string {
   const strVal = String(val ?? '').trim();
 
-  // Already a date string?
   if (/\d{4}-\d{2}-\d{2}/.test(strVal)) return strVal;
   if (/\d{1,2}[\/\-\.]\d{1,2}[\/\-\.]\d{2,4}/.test(strVal)) {
     const norm = normalizeDate(strVal);
     if (norm) return norm;
   }
 
-  // Excel serial number? (e.g. 44927)
   const num = parseFloat(strVal);
   if (!isNaN(num) && num > 25569 && num < 60000) {
-    // Convert Excel serial to JS date
     const date = new Date((num - 25569) * 86400 * 1000);
     const yyyy = date.getUTCFullYear();
     const mm = String(date.getUTCMonth() + 1).padStart(2, '0');
@@ -155,14 +145,10 @@ function fixExcelDate(val: string | number): string {
     return `${yyyy}-${mm}-${dd}`;
   }
 
-  // Try normalizeDate as last resort
   const norm = normalizeDate(strVal);
   return norm || new Date().toISOString().split('T')[0];
 }
 
-// ============================================================
-// Parse a single row
-// ============================================================
 function parseRawRow(
   raw: RawImportRow,
   headerMap: Record<string, keyof ParsedMember | 'ignore' | null>,
@@ -212,12 +198,10 @@ function parseRawRow(
     }
   }
 
-  // Auto-generate member_no if missing
   if (!parsed.member_no) {
     parsed.member_no = autoMemberNo;
   }
 
-  // Fill defaults for optional fields
   if (!parsed.address) parsed.address = '';
   if (!parsed.email) parsed.email = '';
   if (!parsed.phone) parsed.phone = '';
@@ -225,7 +209,6 @@ function parseRawRow(
   if (!parsed.joined_date) parsed.joined_date = new Date().toISOString().split('T')[0];
   if (parsed.share_amount === undefined) parsed.share_amount = 0;
 
-  // Only name is truly required — member_no is auto-generated if missing
   if (!parsed.name) errors.push('Name is required');
 
   const status = errors.length > 0 ? 'invalid' : 'valid';
@@ -274,7 +257,7 @@ export async function parseCSV(
 }
 
 // ============================================================
-// Excel Parser — Auto-detects header row (any Excel format)
+// Excel Parser
 // ============================================================
 export async function parseExcel(
   file: File,
@@ -289,14 +272,13 @@ export async function parseExcel(
         const workbook = XLSX.read(data, {
           type: 'array',
           codepage: 65001,
-          cellDates: false,  // Keep raw serial numbers so we can convert them properly
+          cellDates: false,
           raw: false,
         });
 
         const sheetName = workbook.SheetNames[0];
         const sheet = workbook.Sheets[sheetName];
 
-        // Get ALL data including empty cells
         const jsonData = XLSX.utils.sheet_to_json<(string | number)[]>(sheet, {
           header: 1,
           defval: '',
@@ -309,7 +291,6 @@ export async function parseExcel(
           return;
         }
 
-        // Auto-detect header row: scan first 15 rows
         let headerRowIndex = 0;
         for (let i = 0; i < Math.min(15, jsonData.length); i++) {
           if (isHeaderRow(jsonData[i] as (string | number)[])) {
@@ -323,30 +304,13 @@ export async function parseExcel(
         );
         const headerMap = buildHeaderMap(headerRow);
 
-        // Check if ANY headers were recognized
-        const recognizedCount = Object.values(headerMap).filter(
-          (v) => v !== null && v !== 'ignore'
-        ).length;
-
-        // If no headers recognized at all, try row 0 as fallback
         let finalHeaderRowIndex = headerRowIndex;
-        if (recognizedCount === 0 && headerRowIndex !== 0) {
-          finalHeaderRowIndex = 0;
-          const fallbackRow = (jsonData[0] as (string | number)[]).map((h) =>
-            String(h ?? '').trim()
-          );
-          const fallbackMap = buildHeaderMap(fallbackRow);
-          Object.assign(headerMap, fallbackMap);
-        }
 
         const rows: ImportRow[] = [];
         for (let i = finalHeaderRowIndex + 1; i < jsonData.length; i++) {
           const rowArr = jsonData[i] as (string | number)[];
-
-          // Skip entirely empty rows
           if (!rowArr || rowArr.every((v) => v === '' || v === null || v === undefined)) continue;
 
-          // Build raw object
           const finalHeaderRow = (jsonData[finalHeaderRowIndex] as (string | number)[]).map((h) =>
             String(h ?? '').trim()
           );
@@ -355,7 +319,6 @@ export async function parseExcel(
             raw[h] = rowArr[idx] ?? '';
           });
 
-          // Skip rows where ALL mapped fields are empty
           const hasData = Object.entries(raw).some(([h, v]) => {
             const field = headerMap[h];
             return field && field !== 'ignore' && String(v ?? '').trim() !== '';
@@ -378,6 +341,80 @@ export async function parseExcel(
 }
 
 // ============================================================
+// PDF Parser — Extract tables and member lists from PDF
+// ============================================================
+export async function parsePDF(
+  file: File,
+  divisionId: string,
+  categoryId: string
+): Promise<ImportRow[]> {
+  const arrayBuffer = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({ data: arrayBuffer }).promise;
+
+  const allLines: string[][] = [];
+
+  for (let p = 1; p <= pdf.numPages; p++) {
+    const page = await pdf.getPage(p);
+    const textContent = await page.getTextContent();
+
+    const itemsByY: Record<number, { x: number; text: string }[]> = {};
+
+    for (const item of textContent.items as any[]) {
+      if (!item.str || !item.str.trim()) continue;
+      const y = Math.round(item.transform[5]);
+      if (!itemsByY[y]) itemsByY[y] = [];
+      itemsByY[y].push({ x: item.transform[4], text: item.str });
+    }
+
+    const sortedY = Object.keys(itemsByY)
+      .map(Number)
+      .sort((a, b) => b - a);
+
+    for (const y of sortedY) {
+      const lineItems = itemsByY[y].sort((a, b) => a.x - b.x);
+      const rowTokens = lineItems.map((i) => i.text.trim());
+      allLines.push(rowTokens);
+    }
+  }
+
+  if (allLines.length === 0) return [];
+
+  let headerRowIndex = 0;
+  for (let i = 0; i < Math.min(15, allLines.length); i++) {
+    if (isHeaderRow(allLines[i])) {
+      headerRowIndex = i;
+      break;
+    }
+  }
+
+  const headerRow = allLines[headerRowIndex].map((h) => String(h ?? '').trim());
+  const headerMap = buildHeaderMap(headerRow);
+
+  const rows: ImportRow[] = [];
+  for (let i = headerRowIndex + 1; i < allLines.length; i++) {
+    const line = allLines[i];
+    if (!line || line.length === 0) continue;
+
+    const raw: RawImportRow = {};
+    headerRow.forEach((h, idx) => {
+      raw[h] = line[idx] ?? '';
+    });
+
+    const hasData = Object.entries(raw).some(([h, v]) => {
+      const field = headerMap[h];
+      return field && field !== 'ignore' && String(v ?? '').trim() !== '';
+    });
+    if (!hasData) continue;
+
+    rows.push(
+      parseRawRow(raw, headerMap, divisionId, categoryId, i + 1, `PDF-${rows.length + 1}`)
+    );
+  }
+
+  return rows;
+}
+
+// ============================================================
 // Main entry point
 // ============================================================
 export async function parseFile(
@@ -391,8 +428,10 @@ export async function parseFile(
     return parseCSV(file, divisionId, categoryId);
   } else if (ext === 'xls' || ext === 'xlsx') {
     return parseExcel(file, divisionId, categoryId);
+  } else if (ext === 'pdf') {
+    return parsePDF(file, divisionId, categoryId);
   } else {
-    throw new Error(`Unsupported file type: .${ext}. Please use CSV, XLS or XLSX`);
+    throw new Error(`Unsupported file type: .${ext}. Please use CSV, XLS, XLSX or PDF`);
   }
 }
 
@@ -411,7 +450,7 @@ export function normalizeName(name?: string | null): string {
     .toLowerCase()
     .replace(/\s+/g, ' ')
     .replace(/^(mr|mrs|ms|dr|prof|rev)\.?\s+/i, '')
-    .replace(/\s+/g, ''); // strip all spaces for strict comparison
+    .replace(/\s+/g, '');
 }
 
 export interface ExistingMemberData {
@@ -420,18 +459,10 @@ export interface ExistingMemberData {
   existingNames: Set<string>;
 }
 
-// ============================================================
-// Duplicate detection — NEVER AUTO-RENAME OR FORCE DUPLICATES
-// Priority 1: NIC
-// Priority 2: Name (if NIC is empty)
-// Priority 3: Member No
-// Checks both DB records and intra-file duplicates
-// ============================================================
 export function applyDuplicateDetection(
   rows: ImportRow[],
   dbData: ExistingMemberData
 ): ImportRow[] {
-  // Keep track of values seen in DB and earlier rows of this file
   const seenMemberNos = new Set<string>(dbData.existingMemberNos);
   const seenNICs = new Set<string>(dbData.existingNICs);
   const seenNames = new Set<string>(dbData.existingNames);
@@ -450,7 +481,6 @@ export function applyDuplicateDetection(
     let isDuplicate = false;
     let dupReason = 'ALREADY EXISTS';
 
-    // 1. Priority 1: Check NIC (if present)
     if (nic) {
       if (seenNICs.has(nic)) {
         isDuplicate = true;
@@ -458,7 +488,6 @@ export function applyDuplicateDetection(
       }
     }
 
-    // 2. Priority 2: Check Name (if NIC is empty)
     if (!isDuplicate && !nic && name) {
       if (seenNames.has(name)) {
         isDuplicate = true;
@@ -466,7 +495,6 @@ export function applyDuplicateDetection(
       }
     }
 
-    // 3. Priority 3: Check Member Number
     if (!isDuplicate && memberNo) {
       if (seenMemberNos.has(memberNo)) {
         isDuplicate = true;
@@ -482,7 +510,6 @@ export function applyDuplicateDetection(
       };
     }
 
-    // Record seen values for intra-file duplicate checking
     if (nic) seenNICs.add(nic);
     if (name) seenNames.add(name);
     if (memberNo) seenMemberNos.add(memberNo);
@@ -495,10 +522,6 @@ export function applyDuplicateDetection(
   });
 }
 
-
-// ============================================================
-// Template generator
-// ============================================================
 export function downloadImportTemplate(): void {
   const templateData = [
     ['member_no', 'name', 'address', 'email', 'phone', 'nic', 'joined_date', 'share_amount'],
