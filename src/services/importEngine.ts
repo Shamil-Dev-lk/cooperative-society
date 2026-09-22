@@ -465,41 +465,25 @@ export function applyDuplicateDetection(
 ): ImportRow[] {
   const seenMemberNos = new Set<string>(dbData.existingMemberNos);
   const seenNICs = new Set<string>(dbData.existingNICs);
-  const seenNames = new Set<string>(dbData.existingNames);
 
   return rows.map((row) => {
     if (row.status === 'invalid' || !row.parsed) return row;
 
     const rawNic = row.parsed.nic;
-    const rawName = row.parsed.name;
     const rawMemberNo = row.parsed.member_no;
 
     const nic = normalizeNIC(rawNic);
-    const name = normalizeName(rawName);
     const memberNo = fixMemberNo(rawMemberNo);
 
     let isDuplicate = false;
     let dupReason = 'ALREADY EXISTS';
 
-    if (nic) {
-      if (seenNICs.has(nic)) {
-        isDuplicate = true;
-        dupReason = 'ALREADY EXISTS (NIC matched)';
-      }
-    }
-
-    if (!isDuplicate && !nic && name) {
-      if (seenNames.has(name)) {
-        isDuplicate = true;
-        dupReason = 'ALREADY EXISTS (Member name matched)';
-      }
-    }
-
-    if (!isDuplicate && memberNo) {
-      if (seenMemberNos.has(memberNo)) {
-        isDuplicate = true;
-        dupReason = 'ALREADY EXISTS (Member No matched)';
-      }
+    if (nic && seenNICs.has(nic)) {
+      isDuplicate = true;
+      dupReason = 'ALREADY EXISTS (NIC matched)';
+    } else if (memberNo && seenMemberNos.has(memberNo)) {
+      isDuplicate = true;
+      dupReason = 'ALREADY EXISTS (Member No matched)';
     }
 
     if (isDuplicate) {
@@ -511,7 +495,6 @@ export function applyDuplicateDetection(
     }
 
     if (nic) seenNICs.add(nic);
-    if (name) seenNames.add(name);
     if (memberNo) seenMemberNos.add(memberNo);
 
     return {

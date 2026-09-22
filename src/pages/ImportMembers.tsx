@@ -89,7 +89,7 @@ const ImportMembersPage: React.FC = () => {
   };
 
   // STEP 4 → 5: Import
-  const handleImport = async () => {
+  const handleImport = async (forceUpsert = false) => {
     // UPDATE MODE: update share amounts for existing members
     if (importMode === 'update') {
       const allRows = rows.filter((r) => r.parsed?.member_no && r.parsed?.share_amount !== undefined);
@@ -100,7 +100,7 @@ const ImportMembersPage: React.FC = () => {
       const start = Date.now();
       const members = allRows.map((r) => r.parsed!);
       const { updated, failed } = await memberService.batchUpsert(
-        members, 200,
+        members, 1000,
         (done, total) => { setProgress(Math.round((done / total) * 100)); setProgressCount({ done, total }); }
       );
       setSummary({ totalRows: rows.length, imported: updated, duplicates: 0, failed, durationMs: Date.now() - start });
@@ -112,12 +112,42 @@ const ImportMembersPage: React.FC = () => {
       return;
     }
 
+    // FORCE UPSERT MODE: Import ALL parsed members (new + existing)
+    if (forceUpsert) {
+      const allMembersToUpsert = rows.filter((r) => r.parsed).map((r) => r.parsed!);
+      if (allMembersToUpsert.length === 0) { toast.error('No valid rows to import'); return; }
+      setIsImporting(true);
+      setProgress(0);
+      setStep('import');
+      const start = Date.now();
+      const { updated, failed } = await memberService.batchUpsert(
+        allMembersToUpsert,
+        1000,
+        (done, total) => { setProgress(Math.round((done / total) * 100)); setProgressCount({ done, total }); }
+      );
+      const durationMs = Date.now() - start;
+      const invalid = rows.filter((r) => r.status === 'invalid').length;
+      setSummary({
+        totalRows: rows.length,
+        imported: updated,
+        duplicates: 0,
+        failed: failed + invalid,
+        durationMs,
+      });
+      queryClient.invalidateQueries({ queryKey: ['members'] });
+      queryClient.invalidateQueries({ queryKey: ['dashboard-stats'] });
+      setIsImporting(false);
+      setStep('summary');
+      toast.success(`Successfully updated & imported ${updated} members!`);
+      return;
+    }
+
     // INSERT MODE — import ONLY genuinely valid new records
     const rowsToImport = rows.filter((r) => r.status === 'valid' && r.parsed);
 
     // IF ALL MEMBERS ALREADY EXIST:
     if (rowsToImport.length === 0) {
-      toast.error("All members already exist. Nothing new to import.");
+      toast.error("All members already exist. Use 'Update/Re-import All' to update existing records.");
       setSummary({
         totalRows: rows.length,
         imported: 0,
@@ -137,7 +167,7 @@ const ImportMembersPage: React.FC = () => {
 
     const { imported, failed } = await memberService.batchInsert(
       members,
-      100,
+      1000,
       (done, total) => {
         setProgress(Math.round((done / total) * 100));
         setProgressCount({ done, total });
@@ -164,7 +194,7 @@ const ImportMembersPage: React.FC = () => {
     if (imported > 0) {
       toast.success(`Imported ${imported} new members successfully! (${duplicates} skipped)`);
     } else {
-      toast.error("All members already exist. Nothing new to import.");
+      toast.error("All members already exist.");
     }
   };
 
@@ -557,10 +587,15 @@ const ImportMembersPage: React.FC = () => {
                 </div>
               </div>
 
-              {validCount === 0 && (
-                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl text-sm text-amber-800 font-semibold flex items-center gap-2">
-                  <AlertTriangle size={18} className="text-amber-600 shrink-0" />
-                  <span>All members already exist. Nothing new to import.</span>
+              {validCount === 0 && dupCount > 0 && (
+                <div className="mt-4 p-4 bg-amber-50 border border-amber-200 rounded-xl">
+                  <div className="flex items-center gap-2 text-sm font-semibold text-amber-800 mb-1">
+                    <AlertTriangle size={18} className="text-amber-600 shrink-0" />
+                    <span>⚠️ All {formatNumber(dupCount)} members already exist in the database.</span>
+                  </div>
+                  <p className="text-xs text-amber-700">
+                    If you want to update their details (Address, Shares, Joined Date, Category, Division), click <strong>"Update / Re-import All Members"</strong> below.
+                  </p>
                 </div>
               )}
 
@@ -570,13 +605,12 @@ const ImportMembersPage: React.FC = () => {
                     ⚠️ {formatNumber(dupCount)} rows detected as duplicates (Already Exists)
                   </p>
                   <p className="text-xs text-amber-700">
-                    These members already exist in the database or appear multiple times in the file.
-                    They will be automatically skipped to prevent duplicate database records.
+                    You can either import only the {formatNumber(validCount)} new members, or update/re-import all {formatNumber(validCount + dupCount)} members.
                   </p>
                 </div>
               )}
 
-              <div className="flex justify-between mt-6">
+              <div className="flex flex-wrap justify-between items-center gap-3 mt-6">
                 <button
                   onClick={() => goToStep('preview')}
                   className="flex items-center gap-2 border border-gray-200 text-gray-600 px-5 py-2.5
@@ -584,14 +618,28 @@ const ImportMembersPage: React.FC = () => {
                 >
                   <ChevronLeft size={16} /> Back
                 </button>
-                <button
-                  disabled={validCount === 0}
-                  onClick={handleImport}
-                  className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
-                    px-6 py-3 rounded-xl font-medium text-sm disabled:opacity-40 transition-all"
-                >
-                  Import {formatNumber(validCount)} New Members <ChevronRight size={16} />
-                </button>
+
+                <div className="flex flex-wrap items-center gap-3">
+                  {dupCount > 0 && (
+                    <button
+                      onClick={() => handleImport(true)}
+                      className="flex items-center gap-2 bg-amber-600 hover:bg-amber-700 text-white
+                        px-5 py-2.5 rounded-xl font-medium text-sm transition-all"
+                    >
+                      🔄 Update / Re-import All ({formatNumber(validCount + dupCount)})
+                    </button>
+                  )}
+
+                  {validCount > 0 && (
+                    <button
+                      onClick={() => handleImport(false)}
+                      className="flex items-center gap-2 bg-primary hover:bg-primary-hover text-white
+                        px-6 py-2.5 rounded-xl font-medium text-sm transition-all"
+                    >
+                      Import {formatNumber(validCount)} New Members <ChevronRight size={16} />
+                    </button>
+                  )}
+                </div>
               </div>
             </div>
           )}
