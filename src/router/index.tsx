@@ -16,6 +16,7 @@ import ReportsPage from '@/pages/Reports';
 import SettingsPage from '@/pages/Settings';
 import UserManagementPage from '@/pages/UserManagement';
 import BroadcastPage from '@/pages/Broadcast';
+import NotificationsPage from '@/pages/Notifications';
 
 export const AppRouter: React.FC = () => (
   <Routes>
@@ -28,6 +29,7 @@ export const AppRouter: React.FC = () => (
       <Route element={<AppLayout />}>
         <Route path="/dashboard" element={<DashboardPage />} />
         <Route path="/members" element={<MembersPage />} />
+        <Route path="/notifications" element={<NotificationsPage />} />
         <Route path="/categories" element={<CategoriesPage />} />
         <Route path="/divisions" element={<DivisionsPage />} />
         <Route path="/reports" element={<ReportsPage />} />
