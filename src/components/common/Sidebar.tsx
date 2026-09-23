@@ -319,3 +319,4 @@ const SidebarContent: React.FC<SidebarContentProps> = ({
     )}
   </>
 );
+};
