@@ -77,7 +77,7 @@ const LoginPage: React.FC = () => {
 
   return (
     <div className="relative min-h-screen bg-gray-950 flex items-center justify-center p-4 font-sans overflow-hidden select-none">
-      {/* Matrix Code Rain & Cyber Background */}
+      {/* Red Matrix Code Rain & Cyber Background */}
       <MatrixBackground />
 
       {/* Sound Toggle Button (Top Right HUD) */}
@@ -87,15 +87,15 @@ const LoginPage: React.FC = () => {
           type="button"
           className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold transition-all duration-300 border
             ${soundEnabled
-              ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-900/80'
+              ? 'bg-red-950/90 border-red-500/50 text-red-400 shadow-[0_0_20px_rgba(239,68,68,0.3)] hover:bg-red-900/90'
               : 'bg-gray-900/80 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}
         >
-          {soundEnabled ? <Volume2 size={15} className="animate-pulse text-emerald-400" /> : <VolumeX size={15} />}
+          {soundEnabled ? <Volume2 size={15} className="animate-pulse text-red-400" /> : <VolumeX size={15} />}
           <span>{soundEnabled ? 'SOUND ON' : 'SOUND OFF'}</span>
         </button>
       </div>
 
-      {/* Main Glassmorphism Cyber Login Portal Card */}
+      {/* Main Glassmorphism Cyber Login Portal Card (Red Cyber Theme) */}
       <motion.div
         initial={{ opacity: 0, scale: 0.95, y: 20 }}
         animate={{
@@ -108,11 +108,11 @@ const LoginPage: React.FC = () => {
           ${authStatus === 'success'
             ? 'bg-emerald-950/90 border-emerald-400 shadow-[0_0_80px_rgba(16,185,129,0.4)]'
             : authStatus === 'failed'
-            ? 'bg-red-950/90 border-red-500 shadow-[0_0_80px_rgba(239,68,68,0.4)]'
-            : 'bg-gray-950/80 border-emerald-500/30 shadow-[0_0_60px_rgba(16,185,129,0.15)]'}`}
+            ? 'bg-red-950/95 border-red-500 shadow-[0_0_90px_rgba(239,68,68,0.6)]'
+            : 'bg-gray-950/90 border-red-500/40 shadow-[0_0_70px_rgba(239,68,68,0.25)]'}`}
       >
         {/* Animated Card Border Glow */}
-        <div className="absolute inset-0 rounded-3xl pointer-events-none border border-emerald-500/20 animate-pulse" />
+        <div className="absolute inset-0 rounded-3xl pointer-events-none border border-red-500/30 animate-pulse" />
 
         {/* OVERLAY: SUCCESS STATE (ACCESS GRANTED) */}
         <AnimatePresence>
@@ -203,26 +203,26 @@ const LoginPage: React.FC = () => {
         </AnimatePresence>
 
         {/* Card Header */}
-        <div className="p-8 pb-4 text-center border-b border-emerald-500/15 relative">
+        <div className="p-8 pb-4 text-center border-b border-red-500/20 relative">
           {/* Logo Badge */}
           <motion.div
             initial={{ scale: 0 }}
             animate={{ scale: 1 }}
             transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
-            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-400/40 flex items-center justify-center mx-auto mb-3 shadow-[0_0_25px_rgba(16,185,129,0.2)]"
+            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-red-500/20 to-rose-500/20 border border-red-500/40 flex items-center justify-center mx-auto mb-3 shadow-[0_0_30px_rgba(239,68,68,0.3)]"
           >
-            <Building2 size={32} className="text-emerald-400" />
+            <Building2 size={32} className="text-red-500" />
           </motion.div>
 
           <h1 className="text-xl font-bold text-white tracking-wide">
             Cooperative Society
           </h1>
-          <p className="text-xs text-emerald-400/80 font-mono mt-0.5">සමූපකාර සමිතිය කළමනාකරණ</p>
+          <p className="text-xs text-red-400/90 font-mono mt-0.5">සමූපකාර සමිතිය කළමනාකරණ</p>
 
           {/* Glitch HUD Subtitle */}
-          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/30">
-            <Cpu size={12} className="text-cyan-400 animate-spin" />
-            <span className="text-[10px] font-mono tracking-widest text-cyan-300 font-bold uppercase">
+          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-red-950/80 border border-red-500/40">
+            <Cpu size={12} className="text-rose-400 animate-spin" />
+            <span className="text-[10px] font-mono tracking-widest text-red-300 font-bold uppercase">
               SECURE ACCESS PORTAL
             </span>
           </div>
@@ -232,8 +232,8 @@ const LoginPage: React.FC = () => {
         <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-5">
           {/* Email Field */}
           <div>
-            <label className="block text-xs font-mono font-semibold text-emerald-400/90 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-              <Mail size={13} className="text-cyan-400" /> Email Address / විද්‍යුත් තැපෑල
+            <label className="block text-xs font-mono font-semibold text-red-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+              <Mail size={13} className="text-rose-400" /> Email Address / විද්‍යුත් තැපෑල
             </label>
             <div className="relative">
               <input
@@ -243,8 +243,8 @@ const LoginPage: React.FC = () => {
                 onFocus={() => cyberSound.playBeep(soundEnabled)}
                 placeholder="shamildeveloperlk@gmail.com"
                 className={`w-full px-4 py-3 rounded-xl border text-sm font-mono transition-all duration-300 bg-gray-900/90 text-gray-100 placeholder-gray-600
-                  focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 focus:bg-gray-950
-                  ${errors.email ? 'border-red-500/80 bg-red-950/20' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}
+                  focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-400 focus:bg-gray-950
+                  ${errors.email ? 'border-red-500 bg-red-950/40' : 'border-red-500/30 hover:border-red-500/60'}`}
               />
             </div>
             {errors.email && (
@@ -256,8 +256,8 @@ const LoginPage: React.FC = () => {
 
           {/* Password Field */}
           <div>
-            <label className="block text-xs font-mono font-semibold text-emerald-400/90 mb-2 uppercase tracking-wider flex items-center gap-1.5">
-              <Lock size={13} className="text-cyan-400" /> Password / මුරපදය
+            <label className="block text-xs font-mono font-semibold text-red-400 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+              <Lock size={13} className="text-rose-400" /> Password / මුරපදය
             </label>
             <div className="relative">
               <input
@@ -267,13 +267,13 @@ const LoginPage: React.FC = () => {
                 onFocus={() => cyberSound.playBeep(soundEnabled)}
                 placeholder="••••••••"
                 className={`w-full px-4 py-3 pr-11 rounded-xl border text-sm font-mono transition-all duration-300 bg-gray-900/90 text-gray-100 placeholder-gray-600
-                  focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 focus:bg-gray-950
-                  ${errors.password ? 'border-red-500/80 bg-red-950/20' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}
+                  focus:outline-none focus:ring-2 focus:ring-red-500/40 focus:border-red-400 focus:bg-gray-950
+                  ${errors.password ? 'border-red-500 bg-red-950/40' : 'border-red-500/30 hover:border-red-500/60'}`}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-emerald-400 transition-colors"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-red-400 transition-colors"
               >
                 {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
               </button>
@@ -285,21 +285,21 @@ const LoginPage: React.FC = () => {
             )}
           </div>
 
-          {/* Cyber Login Button */}
+          {/* Cyber Red Login Button */}
           <button
             type="submit"
             disabled={isLoading}
             onClick={() => cyberSound.playClick(soundEnabled)}
-            className="group relative w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl font-mono font-bold text-sm text-gray-950
-              bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-400 hover:from-emerald-300 hover:to-cyan-300
-              transition-all duration-300 shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_40px_rgba(0,240,255,0.5)]
+            className="group relative w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl font-mono font-bold text-sm text-white
+              bg-gradient-to-r from-red-600 via-rose-500 to-red-600 hover:from-red-500 hover:to-rose-400
+              transition-all duration-300 shadow-[0_0_35px_rgba(239,68,68,0.4)] hover:shadow-[0_0_50px_rgba(255,51,102,0.6)]
               disabled:opacity-60 disabled:cursor-not-allowed mt-4 overflow-hidden"
           >
             {/* Hover Light Sweep */}
             <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
 
             {isLoading ? (
-              <div className="flex items-center gap-2 text-gray-950 font-bold">
+              <div className="flex items-center gap-2 text-white font-bold">
                 <Terminal size={16} className="animate-spin" />
                 <span>AUTHENTICATING...</span>
               </div>
@@ -313,9 +313,9 @@ const LoginPage: React.FC = () => {
         </form>
 
         {/* Card Footer */}
-        <div className="p-4 bg-gray-950/80 border-t border-emerald-500/10 text-center">
-          <p className="text-[10px] font-mono text-emerald-400/50">
-            © {new Date().getFullYear()} Cooperative Society Management System — SECURE GATEWAY
+        <div className="p-4 bg-gray-950/80 border-t border-red-500/15 text-center">
+          <p className="text-[10px] font-mono text-red-400/60">
+            © {new Date().getFullYear()} Cooperative Society Management System — SECURE RED GATEWAY
           </p>
         </div>
       </motion.div>
@@ -324,3 +324,4 @@ const LoginPage: React.FC = () => {
 };
 
 export default LoginPage;
+

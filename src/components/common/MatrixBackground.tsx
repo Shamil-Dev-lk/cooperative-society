@@ -3,7 +3,7 @@ import React, { useEffect, useRef } from 'react';
 const CHARACTERS = '010101<>{}[]/\\#$%&ABCDEFGHJKLMNPQRSTUVWXYZ';
 const STREAM_TEXTS = [
   'SYSTEM_INITIALIZING',
-  'SECURITY_LAYER_v4.2',
+  'RED_SECURITY_LAYER_v4.2',
   'AUTH_GATEWAY_ACTIVE',
   'ENCRYPTED_CONNECTION_TLS1.3',
   'ACCESS_CONTROL_ENFORCED',
@@ -56,21 +56,21 @@ export const MatrixBackground: React.FC = () => {
 
     const render = () => {
       // Dark trail background fill
-      ctx.fillStyle = 'rgba(5, 10, 15, 0.15)';
+      ctx.fillStyle = 'rgba(15, 5, 8, 0.15)';
       ctx.fillRect(0, 0, width, height);
 
-      // 1. Matrix Code Rain
+      // 1. Red Matrix Code Rain
       ctx.font = `${fontSize}px monospace`;
       for (let i = 0; i < drops.length; i++) {
         const char = CHARACTERS[Math.floor(Math.random() * CHARACTERS.length)];
         const x = i * fontSize;
         const y = drops[i] * fontSize;
 
-        // Head character is bright cyan, trailing characters are neon green
+        // Head character is intense white-red, trailing characters are neon crimson red
         if (Math.random() > 0.9) {
-          ctx.fillStyle = '#00f0ff';
+          ctx.fillStyle = '#ff3366';
         } else {
-          ctx.fillStyle = '#10b981';
+          ctx.fillStyle = '#ef4444';
         }
 
         ctx.fillText(char, x, y);
@@ -81,17 +81,17 @@ export const MatrixBackground: React.FC = () => {
         drops[i] += speeds[i];
       }
 
-      // 2. Laser Line
+      // 2. Red Laser Scan Line
       laserY = (laserY + laserSpeed) % height;
       const gradient = ctx.createLinearGradient(0, laserY - 10, 0, laserY + 10);
-      gradient.addColorStop(0, 'rgba(16, 185, 129, 0)');
-      gradient.addColorStop(0.5, 'rgba(0, 240, 255, 0.4)');
-      gradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+      gradient.addColorStop(0, 'rgba(239, 68, 68, 0)');
+      gradient.addColorStop(0.5, 'rgba(255, 51, 102, 0.5)');
+      gradient.addColorStop(1, 'rgba(239, 68, 68, 0)');
       ctx.fillStyle = gradient;
       ctx.fillRect(0, laserY - 10, width, 20);
 
-      // 3. Floating Digital Particles
-      ctx.fillStyle = 'rgba(0, 240, 255, 0.5)';
+      // 3. Floating Digital Crimson Particles
+      ctx.fillStyle = 'rgba(255, 51, 102, 0.6)';
       for (let i = 0; i < particles.length; i++) {
         const p = particles[i];
         p.x += p.vx;
@@ -109,7 +109,7 @@ export const MatrixBackground: React.FC = () => {
           const p2 = particles[j];
           const dist = Math.hypot(p.x - p2.x, p.y - p2.y);
           if (dist < 100) {
-            ctx.strokeStyle = `rgba(16, 185, 129, ${0.15 * (1 - dist / 100)})`;
+            ctx.strokeStyle = `rgba(239, 68, 68, ${0.2 * (1 - dist / 100)})`;
             ctx.lineWidth = 0.5;
             ctx.beginPath();
             ctx.moveTo(p.x, p.y);
@@ -135,31 +135,31 @@ export const MatrixBackground: React.FC = () => {
       {/* Canvas Matrix */}
       <canvas ref={canvasRef} className="absolute inset-0 block w-full h-full" />
 
-      {/* Cyber Grid Overlay */}
+      {/* Cyber Grid Overlay (Red) */}
       <div
-        className="absolute inset-0 opacity-15"
+        className="absolute inset-0 opacity-20"
         style={{
           backgroundImage: `
-            linear-gradient(to right, rgba(16, 185, 129, 0.2) 1px, transparent 1px),
-            linear-gradient(to bottom, rgba(0, 240, 255, 0.2) 1px, transparent 1px)
+            linear-gradient(to right, rgba(239, 68, 68, 0.25) 1px, transparent 1px),
+            linear-gradient(to bottom, rgba(255, 51, 102, 0.25) 1px, transparent 1px)
           `,
           backgroundSize: '40px 40px',
         }}
       />
 
-      {/* Ambient Radial Glow */}
-      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-emerald-500/10 rounded-full blur-[120px]" />
-      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-cyan-500/10 rounded-full blur-[120px]" />
+      {/* Ambient Red Glow */}
+      <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-red-600/15 rounded-full blur-[130px]" />
+      <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-rose-600/15 rounded-full blur-[130px]" />
 
       {/* Decorative Stream Text (HUD Corners) */}
-      <div className="hidden lg:block absolute top-6 left-6 font-mono text-[10px] text-emerald-400/50 space-y-1 select-none">
+      <div className="hidden lg:block absolute top-6 left-6 font-mono text-[10px] text-red-400/60 space-y-1 select-none">
         {STREAM_TEXTS.slice(0, 4).map((text, i) => (
           <p key={i} className="animate-pulse">
             &gt; {text} [...]
           </p>
         ))}
       </div>
-      <div className="hidden lg:block absolute bottom-6 right-6 font-mono text-[10px] text-cyan-400/50 space-y-1 text-right select-none">
+      <div className="hidden lg:block absolute bottom-6 right-6 font-mono text-[10px] text-rose-400/60 space-y-1 text-right select-none">
         {STREAM_TEXTS.slice(4, 8).map((text, i) => (
           <p key={i} className="animate-pulse">
             [{text}] &lt; OK
@@ -169,3 +169,4 @@ export const MatrixBackground: React.FC = () => {
     </div>
   );
 };
+
