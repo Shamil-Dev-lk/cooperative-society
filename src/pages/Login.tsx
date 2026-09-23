@@ -2,11 +2,16 @@ import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useForm } from 'react-hook-form';
 import { zodResolver } from '@hookform/resolvers/zod';
-import { motion } from 'framer-motion';
-import { Eye, EyeOff, LogIn, Building2 } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Eye, EyeOff, Lock, Mail, ShieldCheck, ShieldAlert,
+  Volume2, VolumeX, Building2, Cpu, Terminal, CheckCircle2, AlertTriangle
+} from 'lucide-react';
 import { authService } from '@/services/authService';
 import { useAuthStore } from '@/stores/authStore';
 import { loginSchema, type LoginFormData } from '@/schemas';
+import { MatrixBackground } from '@/components/common/MatrixBackground';
+import { cyberSound } from '@/utils/cyberSound';
 import toast from 'react-hot-toast';
 
 const LoginPage: React.FC = () => {
@@ -14,129 +19,305 @@ const LoginPage: React.FC = () => {
   const { setUser } = useAuthStore();
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
+  const [soundEnabled, setSoundEnabled] = useState(true);
+
+  // Success / Failure animation states
+  const [authStatus, setAuthStatus] = useState<'idle' | 'success' | 'failed'>('idle');
 
   const { register, handleSubmit, formState: { errors } } = useForm<LoginFormData>({
     resolver: zodResolver(loginSchema),
   });
 
+  const toggleSound = () => {
+    setSoundEnabled(prev => !prev);
+    cyberSound.playClick(!soundEnabled);
+  };
+
   const onSubmit = async (data: LoginFormData) => {
     setIsLoading(true);
+    cyberSound.playProcessing(soundEnabled);
+
     try {
       const user = await authService.signIn(data.email, data.password);
       setUser(user);
-      toast.success(`Welcome back! / ආයුබෝවන්!`);
-      navigate('/dashboard');
+
+      // Trigger SUCCESS Cyber Security Access Animation & Voice
+      setAuthStatus('success');
+      cyberSound.playSuccess(soundEnabled);
+      cyberSound.speakSuccess(soundEnabled);
+      toast.success('Successfully logged in. You are in the Safe Zone.');
+
+      // Redirect after short cyber animation
+      setTimeout(() => {
+        navigate('/dashboard');
+      }, 2200);
+
     } catch (err: unknown) {
+      // Trigger FAILURE Cyber Security Alert Animation & Voice
+      setAuthStatus('failed');
+      cyberSound.playError(soundEnabled);
+      cyberSound.speakError(soundEnabled);
+
       const rawMsg = err instanceof Error ? err.message : String(err);
       const cleanMsg = (rawMsg.includes('Failed to fetch') || rawMsg.includes('TypeError') || rawMsg.includes('NetworkError'))
         ? 'Invalid email or password. Please check your credentials.'
         : rawMsg;
+
       toast.error(cleanMsg);
+
+      // Reset card after warning animation
+      setTimeout(() => {
+        setAuthStatus('idle');
+      }, 2500);
+
     } finally {
       setIsLoading(false);
     }
   };
 
   return (
-    <div className="min-h-screen bg-bg flex items-center justify-center p-4 font-sans"
-      style={{ background: 'linear-gradient(135deg, #fff5f5 0%, #ffe8e8 50%, #fff0f0 100%)' }}>
+    <div className="relative min-h-screen bg-gray-950 flex items-center justify-center p-4 font-sans overflow-hidden select-none">
+      {/* Matrix Code Rain & Cyber Background */}
+      <MatrixBackground />
 
-      <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute -top-40 -right-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
-        <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-primary/5 rounded-full blur-3xl" />
+      {/* Sound Toggle Button (Top Right HUD) */}
+      <div className="absolute top-6 right-6 z-30">
+        <button
+          onClick={toggleSound}
+          type="button"
+          className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-mono font-semibold transition-all duration-300 border
+            ${soundEnabled
+              ? 'bg-emerald-950/80 border-emerald-500/40 text-emerald-400 shadow-[0_0_15px_rgba(16,185,129,0.2)] hover:bg-emerald-900/80'
+              : 'bg-gray-900/80 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-gray-200'}`}
+        >
+          {soundEnabled ? <Volume2 size={15} className="animate-pulse text-emerald-400" /> : <VolumeX size={15} />}
+          <span>{soundEnabled ? 'SOUND ON' : 'SOUND OFF'}</span>
+        </button>
       </div>
 
+      {/* Main Glassmorphism Cyber Login Portal Card */}
       <motion.div
-        initial={{ opacity: 0, y: 30 }}
-        animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5 }}
-        className="w-full max-w-md"
+        initial={{ opacity: 0, scale: 0.95, y: 20 }}
+        animate={{
+          opacity: 1,
+          scale: authStatus === 'failed' ? [1, 1.02, 0.98, 1.02, 1] : 1,
+          x: authStatus === 'failed' ? [-6, 6, -6, 6, 0] : 0,
+        }}
+        transition={{ duration: 0.4 }}
+        className={`relative w-full max-w-md z-20 rounded-3xl backdrop-blur-2xl transition-all duration-500 border overflow-hidden
+          ${authStatus === 'success'
+            ? 'bg-emerald-950/90 border-emerald-400 shadow-[0_0_80px_rgba(16,185,129,0.4)]'
+            : authStatus === 'failed'
+            ? 'bg-red-950/90 border-red-500 shadow-[0_0_80px_rgba(239,68,68,0.4)]'
+            : 'bg-gray-950/80 border-emerald-500/30 shadow-[0_0_60px_rgba(16,185,129,0.15)]'}`}
       >
-        {/* Card */}
-        <div className="bg-white rounded-3xl shadow-modal overflow-hidden">
-          {/* Header */}
-          <div className="px-8 pt-10 pb-8 text-center"
-            style={{ background: 'linear-gradient(135deg, #CC0000 0%, #8B0000 100%)' }}>
-            <motion.div
-              initial={{ scale: 0 }}
-              animate={{ scale: 1 }}
-              transition={{ delay: 0.2, type: 'spring', stiffness: 200 }}
-              className="w-20 h-20 rounded-2xl bg-white/20 flex items-center justify-center mx-auto mb-4 shadow-lg"
-            >
-              <Building2 size={40} className="text-white" />
-            </motion.div>
-            <h1 className="text-white text-2xl font-bold mb-1">Cooperative Society</h1>
-            <p className="text-white/70 text-sm">සමූපකාර සමිතිය කළමනාකරණ</p>
-            <p className="text-white/60 text-xs mt-1">Management System</p>
-          </div>
+        {/* Animated Card Border Glow */}
+        <div className="absolute inset-0 rounded-3xl pointer-events-none border border-emerald-500/20 animate-pulse" />
 
-          {/* Form */}
-          <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-5">
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Email Address / විද්‍යුත් තැපැල්
-              </label>
+        {/* OVERLAY: SUCCESS STATE (ACCESS GRANTED) */}
+        <AnimatePresence>
+          {authStatus === 'success' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-gray-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center"
+            >
+              <div className="relative mb-6">
+                <motion.div
+                  animate={{ scale: [1, 1.3, 1] }}
+                  transition={{ repeat: Infinity, duration: 1.5 }}
+                  className="w-24 h-24 rounded-full bg-emerald-500/20 flex items-center justify-center border border-emerald-400"
+                >
+                  <ShieldCheck size={56} className="text-emerald-400" />
+                </motion.div>
+                <div className="absolute -bottom-2 -right-2 bg-emerald-500 text-gray-950 p-1.5 rounded-full">
+                  <CheckCircle2 size={20} />
+                </div>
+              </div>
+
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-2xl font-black tracking-widest text-emerald-400 font-mono mb-2"
+              >
+                ACCESS GRANTED
+              </motion.h2>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-xs font-mono text-emerald-300/80 bg-emerald-950/60 px-4 py-2 rounded-xl border border-emerald-500/30"
+              >
+                🛡️ YOU ARE IN THE SAFE ZONE
+              </motion.p>
+
+              <p className="text-[11px] text-emerald-400/60 font-mono mt-6 animate-pulse">
+                Redirecting to secure dashboard...
+              </p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* OVERLAY: FAILED STATE (ACCESS DENIED) */}
+        <AnimatePresence>
+          {authStatus === 'failed' && (
+            <motion.div
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0 }}
+              className="absolute inset-0 z-40 bg-gray-950/95 backdrop-blur-2xl flex flex-col items-center justify-center p-8 text-center"
+            >
+              <div className="relative mb-6">
+                <motion.div
+                  animate={{ scale: [1, 1.2, 1] }}
+                  transition={{ repeat: Infinity, duration: 1 }}
+                  className="w-24 h-24 rounded-full bg-red-500/20 flex items-center justify-center border border-red-500"
+                >
+                  <ShieldAlert size={56} className="text-red-500" />
+                </motion.div>
+                <div className="absolute -bottom-2 -right-2 bg-red-500 text-white p-1.5 rounded-full">
+                  <AlertTriangle size={20} />
+                </div>
+              </div>
+
+              <motion.h2
+                initial={{ opacity: 0, y: 10 }}
+                animate={{ opacity: 1, y: 0 }}
+                className="text-2xl font-black tracking-widest text-red-500 font-mono mb-2"
+              >
+                ACCESS DENIED
+              </motion.h2>
+
+              <motion.p
+                initial={{ opacity: 0 }}
+                animate={{ opacity: 1 }}
+                transition={{ delay: 0.2 }}
+                className="text-xs font-mono text-red-400 bg-red-950/60 px-4 py-2 rounded-xl border border-red-500/40"
+              >
+                ⚠️ SECURITY ALERT: Unsuccessful Login Attempt
+              </motion.p>
+            </motion.div>
+          )}
+        </AnimatePresence>
+
+        {/* Card Header */}
+        <div className="p-8 pb-4 text-center border-b border-emerald-500/15 relative">
+          {/* Logo Badge */}
+          <motion.div
+            initial={{ scale: 0 }}
+            animate={{ scale: 1 }}
+            transition={{ delay: 0.1, type: 'spring', stiffness: 200 }}
+            className="w-16 h-16 rounded-2xl bg-gradient-to-br from-emerald-500/20 to-cyan-500/20 border border-emerald-400/40 flex items-center justify-center mx-auto mb-3 shadow-[0_0_25px_rgba(16,185,129,0.2)]"
+          >
+            <Building2 size={32} className="text-emerald-400" />
+          </motion.div>
+
+          <h1 className="text-xl font-bold text-white tracking-wide">
+            Cooperative Society
+          </h1>
+          <p className="text-xs text-emerald-400/80 font-mono mt-0.5">සමූපකාර සමිතිය කළමනාකරණ</p>
+
+          {/* Glitch HUD Subtitle */}
+          <div className="mt-3 inline-flex items-center gap-2 px-3 py-1 rounded-full bg-emerald-950/80 border border-emerald-500/30">
+            <Cpu size={12} className="text-cyan-400 animate-spin" />
+            <span className="text-[10px] font-mono tracking-widest text-cyan-300 font-bold uppercase">
+              SECURE ACCESS PORTAL
+            </span>
+          </div>
+        </div>
+
+        {/* Form Body */}
+        <form onSubmit={handleSubmit(onSubmit)} className="p-8 space-y-5">
+          {/* Email Field */}
+          <div>
+            <label className="block text-xs font-mono font-semibold text-emerald-400/90 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+              <Mail size={13} className="text-cyan-400" /> Email Address / විද්‍යුත් තැපෑල
+            </label>
+            <div className="relative">
               <input
                 {...register('email')}
                 type="email"
                 autoComplete="email"
-                placeholder="admin@example.com"
-                className={`w-full px-4 py-3 rounded-xl border text-sm transition-all duration-200
-                  focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
-                  ${errors.email ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}
+                onFocus={() => cyberSound.playBeep(soundEnabled)}
+                placeholder="shamildeveloperlk@gmail.com"
+                className={`w-full px-4 py-3 rounded-xl border text-sm font-mono transition-all duration-300 bg-gray-900/90 text-gray-100 placeholder-gray-600
+                  focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 focus:bg-gray-950
+                  ${errors.email ? 'border-red-500/80 bg-red-950/20' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}
               />
-              {errors.email && (
-                <p className="text-red-500 text-xs mt-1">{errors.email.message}</p>
-              )}
             </div>
+            {errors.email && (
+              <p className="text-red-400 text-xs mt-1.5 font-mono flex items-center gap-1">
+                <AlertTriangle size={12} /> {errors.email.message}
+              </p>
+            )}
+          </div>
 
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">
-                Password / මුරපදය
-              </label>
-              <div className="relative">
-                <input
-                  {...register('password')}
-                  type={showPassword ? 'text' : 'password'}
-                  autoComplete="current-password"
-                  placeholder="••••••••"
-                  className={`w-full px-4 py-3 pr-11 rounded-xl border text-sm transition-all duration-200
-                    focus:outline-none focus:ring-2 focus:ring-primary/30 focus:border-primary
-                    ${errors.password ? 'border-red-400 bg-red-50' : 'border-gray-200 bg-gray-50 hover:border-gray-300'}`}
-                />
-                <button
-                  type="button"
-                  onClick={() => setShowPassword(!showPassword)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                >
-                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
-                </button>
+          {/* Password Field */}
+          <div>
+            <label className="block text-xs font-mono font-semibold text-emerald-400/90 mb-2 uppercase tracking-wider flex items-center gap-1.5">
+              <Lock size={13} className="text-cyan-400" /> Password / මුරපදය
+            </label>
+            <div className="relative">
+              <input
+                {...register('password')}
+                type={showPassword ? 'text' : 'password'}
+                autoComplete="current-password"
+                onFocus={() => cyberSound.playBeep(soundEnabled)}
+                placeholder="••••••••"
+                className={`w-full px-4 py-3 pr-11 rounded-xl border text-sm font-mono transition-all duration-300 bg-gray-900/90 text-gray-100 placeholder-gray-600
+                  focus:outline-none focus:ring-2 focus:ring-emerald-500/30 focus:border-emerald-400 focus:bg-gray-950
+                  ${errors.password ? 'border-red-500/80 bg-red-950/20' : 'border-emerald-500/20 hover:border-emerald-500/40'}`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPassword(!showPassword)}
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-emerald-400 transition-colors"
+              >
+                {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+              </button>
+            </div>
+            {errors.password && (
+              <p className="text-red-400 text-xs mt-1.5 font-mono flex items-center gap-1">
+                <AlertTriangle size={12} /> {errors.password.message}
+              </p>
+            )}
+          </div>
+
+          {/* Cyber Login Button */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            onClick={() => cyberSound.playClick(soundEnabled)}
+            className="group relative w-full flex items-center justify-center gap-2.5 py-3.5 px-6 rounded-xl font-mono font-bold text-sm text-gray-950
+              bg-gradient-to-r from-emerald-400 via-cyan-400 to-emerald-400 hover:from-emerald-300 hover:to-cyan-300
+              transition-all duration-300 shadow-[0_0_30px_rgba(16,185,129,0.3)] hover:shadow-[0_0_40px_rgba(0,240,255,0.5)]
+              disabled:opacity-60 disabled:cursor-not-allowed mt-4 overflow-hidden"
+          >
+            {/* Hover Light Sweep */}
+            <div className="absolute inset-0 bg-white/20 -translate-x-full group-hover:translate-x-full transition-transform duration-700 pointer-events-none" />
+
+            {isLoading ? (
+              <div className="flex items-center gap-2 text-gray-950 font-bold">
+                <Terminal size={16} className="animate-spin" />
+                <span>AUTHENTICATING...</span>
               </div>
-              {errors.password && (
-                <p className="text-red-500 text-xs mt-1">{errors.password.message}</p>
-              )}
-            </div>
+            ) : (
+              <>
+                <Terminal size={17} />
+                <span>LOGIN / පිවිසෙන්න</span>
+              </>
+            )}
+          </button>
+        </form>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full flex items-center justify-center gap-2 bg-primary hover:bg-primary-hover
-                text-white py-3 px-6 rounded-xl font-semibold text-sm transition-all duration-200
-                shadow-md hover:shadow-lg disabled:opacity-60 disabled:cursor-not-allowed mt-2"
-            >
-              {isLoading ? (
-                <div className="w-5 h-5 border-2 border-white border-t-transparent rounded-full animate-spin" />
-              ) : (
-                <LogIn size={18} />
-              )}
-              {isLoading ? 'Logging in...' : 'Login / පිවිසෙන්න'}
-            </button>
-          </form>
+        {/* Card Footer */}
+        <div className="p-4 bg-gray-950/80 border-t border-emerald-500/10 text-center">
+          <p className="text-[10px] font-mono text-emerald-400/50">
+            © {new Date().getFullYear()} Cooperative Society Management System — SECURE GATEWAY
+          </p>
         </div>
-
-        <p className="text-center text-gray-400 text-xs mt-6">
-          © {new Date().getFullYear()} Cooperative Society Management System
-        </p>
       </motion.div>
     </div>
   );
