@@ -1,17 +1,25 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { motion } from 'framer-motion';
-import { Users, DollarSign, TrendingUp, MapPin } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+import {
+  Users, DollarSign, TrendingUp, MapPin, Bell, CheckCircle2,
+  Info, AlertTriangle, XCircle, Check, Trash2, ArrowRight
+} from 'lucide-react';
 import { memberService } from '@/services/memberService';
 import { formatCurrency, formatNumber, formatDate } from '@/utils/dateUtils';
 import { StatCardSkeleton, TableRowSkeleton } from '@/components/common/Skeleton';
 import { useSettingsStore } from '@/stores/settingsStore';
+import { useNotificationStore } from '@/stores/notificationStore';
 import {
   AreaChart, Area, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer,
 } from 'recharts';
 
 const DashboardPage: React.FC = () => {
+  const navigate = useNavigate();
   const { settings } = useSettingsStore();
+  const { notifications, markAsRead, markAllAsRead, clearNotifications, unreadCount } = useNotificationStore();
+  const [notifFilter, setNotifFilter] = useState<'all' | 'unread'>('all');
 
   const { data: stats, isLoading: statsLoading } = useQuery({
     queryKey: ['dashboard-stats'],
@@ -36,7 +44,6 @@ const DashboardPage: React.FC = () => {
     refetchInterval: 30000,
     refetchOnWindowFocus: true,
   });
-
 
   const statCards = [
     {
@@ -72,6 +79,21 @@ const DashboardPage: React.FC = () => {
       bg: 'bg-purple-50',
     },
   ];
+
+  const getNotifIcon = (type: string) => {
+    switch (type) {
+      case 'success': return <CheckCircle2 size={16} className="text-emerald-500 shrink-0" />;
+      case 'warning': return <AlertTriangle size={16} className="text-amber-500 shrink-0" />;
+      case 'error': return <XCircle size={16} className="text-red-500 shrink-0" />;
+      default: return <Info size={16} className="text-blue-500 shrink-0" />;
+    }
+  };
+
+  const filteredNotifications = notifFilter === 'unread'
+    ? notifications.filter(n => !n.read)
+    : notifications;
+
+  const unreadNum = unreadCount();
 
   return (
     <div className="space-y-6 animate-fade-in">
@@ -113,7 +135,7 @@ const DashboardPage: React.FC = () => {
           ))}
       </div>
 
-      {/* Chart */}
+      {/* Chart & Quick Summary */}
       <div className="grid grid-cols-1 xl:grid-cols-3 gap-5">
         <div className="xl:col-span-2 bg-white dark:bg-surface-dark rounded-2xl p-6 shadow-card">
           <h2 className="font-semibold text-text dark:text-text-dark mb-1">Monthly Registrations</h2>
@@ -174,6 +196,131 @@ const DashboardPage: React.FC = () => {
               <span className="font-bold text-purple-600">{formatNumber(stats?.totalDivisions ?? 0)}</span>
             </div>
           </div>
+        </div>
+      </div>
+
+      {/* DASHBOARD NOTIFICATIONS & SYSTEM ALERTS SECTION */}
+      <div className="bg-white dark:bg-surface-dark rounded-2xl p-6 shadow-card">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5 border-b border-gray-100 dark:border-gray-700 pb-4">
+          <div className="flex items-center gap-3">
+            <div className="w-9 h-9 rounded-xl bg-primary/10 flex items-center justify-center text-primary">
+              <Bell size={20} />
+            </div>
+            <div>
+              <h2 className="font-bold text-text dark:text-text-dark text-base flex items-center gap-2">
+                System Notifications & Alerts
+                {unreadNum > 0 && (
+                  <span className="bg-primary text-white text-xs font-bold px-2 py-0.5 rounded-full">
+                    {unreadNum} New
+                  </span>
+                )}
+              </h2>
+              <p className="text-xs text-gray-400 mt-0.5">පද්ධති නිවේදන සහ දැනුම්දීම්</p>
+            </div>
+          </div>
+
+          {/* Filter Tabs & Quick Actions */}
+          <div className="flex items-center gap-2 flex-wrap text-xs">
+            <div className="flex bg-gray-100 dark:bg-gray-800 p-1 rounded-xl">
+              <button
+                onClick={() => setNotifFilter('all')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                  notifFilter === 'all'
+                    ? 'bg-white dark:bg-surface-dark text-text dark:text-text-dark shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                All ({notifications.length})
+              </button>
+              <button
+                onClick={() => setNotifFilter('unread')}
+                className={`px-3 py-1.5 rounded-lg font-semibold transition-all ${
+                  notifFilter === 'unread'
+                    ? 'bg-white dark:bg-surface-dark text-text dark:text-text-dark shadow-sm'
+                    : 'text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+                }`}
+              >
+                Unread ({unreadNum})
+              </button>
+            </div>
+
+            {notifications.length > 0 && (
+              <div className="flex items-center gap-1.5 ml-1">
+                <button
+                  onClick={markAllAsRead}
+                  className="flex items-center gap-1 text-primary hover:underline font-semibold px-2 py-1"
+                >
+                  <Check size={13} /> Mark Read
+                </button>
+                <button
+                  onClick={clearNotifications}
+                  className="flex items-center gap-1 text-gray-400 hover:text-red-500 font-semibold px-2 py-1 transition-colors"
+                >
+                  <Trash2 size={13} /> Clear
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Notifications List */}
+        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+          <AnimatePresence>
+            {filteredNotifications.length === 0 ? (
+              <div className="col-span-full py-8 text-center text-gray-400">
+                <Bell size={32} className="mx-auto mb-2 opacity-20" />
+                <p className="text-xs">No notifications found / නිවේදන නොමැත</p>
+              </div>
+            ) : (
+              filteredNotifications.map((n) => (
+                <motion.div
+                  key={n.id}
+                  initial={{ opacity: 0, scale: 0.95 }}
+                  animate={{ opacity: 1, scale: 1 }}
+                  exit={{ opacity: 0, scale: 0.95 }}
+                  onClick={() => {
+                    markAsRead(n.id);
+                    if (n.link) navigate(n.link);
+                  }}
+                  className={`p-4 rounded-xl border transition-all cursor-pointer relative group flex flex-col justify-between
+                    ${!n.read
+                      ? 'bg-primary/5 dark:bg-primary/10 border-primary/30 hover:border-primary shadow-sm'
+                      : 'bg-gray-50/50 dark:bg-gray-800/40 border-gray-100 dark:border-gray-700 hover:border-gray-200 dark:hover:border-gray-600'
+                    }`}
+                >
+                  <div>
+                    <div className="flex items-start justify-between gap-2 mb-2">
+                      <div className="flex items-center gap-2">
+                        {getNotifIcon(n.type)}
+                        <h3 className={`text-xs font-bold text-text dark:text-text-dark ${!n.read ? 'text-primary' : ''}`}>
+                          {n.title}
+                        </h3>
+                      </div>
+                      <span className="text-[10px] text-gray-400 font-mono">
+                        {formatDate(n.timestamp)}
+                      </span>
+                    </div>
+
+                    <p className="text-xs text-gray-600 dark:text-gray-300 font-medium leading-relaxed mb-1">
+                      {n.titleSi}
+                    </p>
+                    <p className="text-xs text-gray-400 leading-snug">
+                      {n.message}
+                    </p>
+                  </div>
+
+                  <div className="mt-3 pt-2 border-t border-gray-100 dark:border-gray-700 flex items-center justify-between text-[11px]">
+                    <span className="text-primary font-semibold flex items-center gap-1 group-hover:translate-x-1 transition-transform">
+                      View details <ArrowRight size={12} />
+                    </span>
+                    {!n.read && (
+                      <span className="w-2 h-2 rounded-full bg-primary animate-pulse" />
+                    )}
+                  </div>
+                </motion.div>
+              ))
+            )}
+          </AnimatePresence>
         </div>
       </div>
 
